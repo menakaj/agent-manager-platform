@@ -7,7 +7,7 @@ on:
 env:
   REGISTRY: ghcr.io
   REGISTRY_ORG: menakaj
-  HELM_REGISTRY: oci://ghcr.io/mendelai
+  HELM_REGISTRY: oci://ghcr.io/menakaj
 
 jobs:
   build-and-push-images:
@@ -19,7 +19,7 @@ jobs:
     strategy:
       matrix:
         service:
-          - agent-management-platform
+          - agent-manager-service
           - console
           - traces-observer-service
     steps:
@@ -71,7 +71,7 @@ jobs:
       - name: Update agent-management-platform chart
         run: |
           IMAGE_UPDATES='[
-            {"path": ".agentManagerService.image", "repository": "${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/agent-management-platform", "tag": "${{ steps.version.outputs.tag }}"},
+            {"path": ".agentManagerService.image", "repository": "${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/agent-manager-service", "tag": "${{ steps.version.outputs.tag }}"},
             {"path": ".console.image", "repository": "${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/console", "tag": "${{ steps.version.outputs.tag }}"}
           ]'
           bash .github/scripts/update-helm-chart.sh \
