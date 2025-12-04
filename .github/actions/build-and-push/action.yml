@@ -48,15 +48,15 @@ runs:
         tag: ${{ inputs.release-tag }}
         github-token: ${{ inputs.github-token }}
 
-    - name: Build and push console
-      id: build-console
-      uses: ./.github/actions/build-docker-image
-      with:
-        service: console
-        registry: ${{ inputs.registry }}
-        registry-org: ${{ inputs.registry-org }}
-        tag: ${{ inputs.release-tag }}
-        github-token: ${{ inputs.github-token }}
+    # - name: Build and push console
+    #   id: build-console
+    #   uses: ./.github/actions/build-docker-image
+    #   with:
+    #     service: console
+    #     registry: ${{ inputs.registry }}
+    #     registry-org: ${{ inputs.registry-org }}
+    #     tag: ${{ inputs.release-tag }}
+    #     github-token: ${{ inputs.github-token }}
 
     - name: Build and push traces-observer-service
       id: build-traces-observer
