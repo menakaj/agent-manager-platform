@@ -1,0 +1,199 @@
+name: Create Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      release_tag:
+        description: 'Release tag (e.g., v1.0.0)'
+        required: true
+        type: string
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_ORG: menakaj
+  HELM_REGISTRY: oci://ghcr.io/menakaj
+
+jobs:
+  create-release:
+    name: Create Release
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release-${{ github.event.inputs.release_tag }}
+      cancel-in-progress: false
+    permissions:
+      contents: write
+    steps:
+      - name: Validate release tag
+        id: validate
+        run: |
+          TAG="${{ github.event.inputs.release_tag }}"
+          if [[ ! "$TAG" =~ ^v?[0-9]+\.[0-9]+\.[0-9]+ ]]; then
+            echo "Error: Invalid release tag format. Expected format: v1.0.0 or 1.0.0"
+            exit 1
+          fi
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "✅ Release tag validated: $TAG"
+        shell: bash
+
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+          fetch-depth: 0
+
+      - name: Extract release tag and version
+        id: version
+        run: |
+          bash .github/scripts/extract-version.sh "${{ steps.validate.outputs.tag }}"
+
+      - name: Install yq
+        uses: mikefarah/yq@v4
+        with:
+          version: v4.40.5
+
+      - name: Update agent-management-platform chart files
+        run: |
+          CHART_DIR="./deployment/helm-charts/agent-management-platform"
+          yq eval -i ".version = \"${{ steps.version.outputs.version }}\"" "$CHART_DIR/Chart.yaml"
+          yq eval -i ".appVersion = \"${{ steps.validate.outputs.tag }}\"" "$CHART_DIR/Chart.yaml"
+          yq eval -i ".agentManagerService.image.repository = \"${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/agent-manager-service\"" "$CHART_DIR/values.yaml"
+          yq eval -i ".agentManagerService.image.tag = \"${{ steps.validate.outputs.tag }}\"" "$CHART_DIR/values.yaml"
+          yq eval -i ".console.image.repository = \"${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/console\"" "$CHART_DIR/values.yaml"
+          yq eval -i ".console.image.tag = \"${{ steps.validate.outputs.tag }}\"" "$CHART_DIR/values.yaml"
+          echo "✅ Updated agent-management-platform chart files"
+        shell: bash
+
+      - name: Update build-ci chart files
+        run: |
+          CHART_DIR="./deployment/helm-charts/build-ci"
+          yq eval -i ".version = \"${{ steps.version.outputs.version }}\"" "$CHART_DIR/Chart.yaml"
+          yq eval -i ".appVersion = \"${{ steps.validate.outputs.tag }}\"" "$CHART_DIR/Chart.yaml"
+          echo "✅ Updated build-ci chart files"
+        shell: bash
+
+      - name: Update observability-dataprepper chart files
+        run: |
+          CHART_DIR="./deployment/helm-charts/observability-dataprepper"
+          yq eval -i ".version = \"${{ steps.version.outputs.version }}\"" "$CHART_DIR/Chart.yaml"
+          yq eval -i ".appVersion = \"${{ steps.validate.outputs.tag }}\"" "$CHART_DIR/Chart.yaml"
+          yq eval -i ".tracesObserverService.image.repository = \"${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/traces-observer-service\"" "$CHART_DIR/values.yaml"
+          yq eval -i ".tracesObserverService.image.tag = \"${{ steps.validate.outputs.tag }}\"" "$CHART_DIR/values.yaml"
+          echo "✅ Updated observability-dataprepper chart files"
+        shell: bash
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+        shell: bash
+
+      - name: Update chart versions in install-helpers.sh
+        run: |
+          bash .github/scripts/update-install-helpers.sh \
+            "${{ steps.version.outputs.version }}" \
+            "./quick-start/install-helpers.sh"
+        shell: bash
+
+      - name: Commit version updates
+        id: commit-changes
+        run: |
+          git add ./quick-start/install-helpers.sh
+          git add ./deployment/helm-charts/*/Chart.yaml ./deployment/helm-charts/*/values.yaml 2>/dev/null || true
+          
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+            echo "committed=false" >> $GITHUB_OUTPUT
+          else
+            git commit -m "chore: update versions for release ${{ steps.validate.outputs.tag }}"
+            echo "committed=true" >> $GITHUB_OUTPUT
+            echo "✅ Committed version updates"
+          fi
+        shell: bash
+
+      - name: Push changes to main branch
+        if: steps.commit-changes.outputs.committed == 'true'
+        run: |
+          git push origin HEAD:main
+          echo "✅ Pushed changes to main branch"
+        shell: bash
+
+      - name: Create git tag
+        id: create-tag
+        run: |
+          TAG="${{ steps.validate.outputs.tag }}"
+          # Check if tag already exists
+          if git rev-parse "$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists, deleting and recreating..."
+            git tag -d "$TAG" || true
+            git push origin ":refs/tags/$TAG" || true
+          fi
+          
+          # Create tag from current commit
+          git tag -a "$TAG" -m "Release $TAG"
+          git push origin "$TAG"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "✅ Created and pushed tag: $TAG"
+        shell: bash
+
+      - name: Create release artifacts
+        id: artifacts
+        run: |
+          bash .github/scripts/create-release-artifacts.sh \
+            "${{ steps.validate.outputs.tag }}" \
+            "./quick-start" \
+            "quick-start"
+        shell: bash
+
+      - name: Create GitHub release
+        uses: softprops/action-gh-release@v1
+        with:
+          tag_name: ${{ steps.validate.outputs.tag }}
+          name: Release ${{ steps.validate.outputs.tag }}
+          body: |
+            ## Release ${{ steps.validate.outputs.tag }}
+            
+            ### Docker Images
+            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/agent-manager-service:${{ steps.validate.outputs.tag }}`
+            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/console:${{ steps.validate.outputs.tag }}`
+            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/traces-observer-service:${{ steps.validate.outputs.tag }}`
+            
+            ### Helm Charts
+            - `${{ env.HELM_REGISTRY }}/agent-management-platform:${{ steps.version.outputs.version }}`
+            - `${{ env.HELM_REGISTRY }}/build-ci:${{ steps.version.outputs.version }}`
+            - `${{ env.HELM_REGISTRY }}/observability-dataprepper:${{ steps.version.outputs.version }}`
+            
+            ### Artifacts
+            - `${{ steps.artifacts.outputs.archive }}`
+            - `${{ steps.artifacts.outputs.checksum }}`
+          files: |
+            ${{ steps.artifacts.outputs.archive }}
+            ${{ steps.artifacts.outputs.checksum }}
+          draft: false
+          prerelease: false
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Mark release as successful
+        if: success()
+        run: |
+          echo "✅ Release ${{ steps.validate.outputs.tag }} created successfully"
+          echo "Helm charts updated and committed. Build and push workflow will be triggered."
+        shell: bash
+
+      - name: Revert git commit on failure
+        if: failure() && steps.commit-changes.outputs.committed == 'true'
+        run: |
+          echo "Reverting git commit..."
+          git reset --hard HEAD~1 || true
+          git push --force origin HEAD:main || true
+          echo "✅ Git changes reverted"
+        shell: bash
+
+      - name: Fail workflow on error
+        if: failure()
+        run: |
+          echo "❌ Release creation failed"
+          exit 1
+        shell: bash
+
