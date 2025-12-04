@@ -1,0 +1,194 @@
+name: Release
+
+on:
+  release:
+    types: [created]
+
+env:
+  REGISTRY: ghcr.io
+  REGISTRY_ORG: menakaj
+  HELM_REGISTRY: oci://ghcr.io/mendelai
+
+jobs:
+  build-and-push-images:
+    name: Build and Push Docker Images
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    strategy:
+      matrix:
+        service:
+          - agent-management-platform
+          - console
+          - traces-observer-service
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract release tag
+        id: tag
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+
+      - name: Build and push Docker image
+        uses: ./.github/actions/build-docker-image
+        with:
+          service: ${{ matrix.service }}
+          registry: ${{ env.REGISTRY }}
+          registry-org: ${{ env.REGISTRY_ORG }}
+          tag: ${{ steps.tag.outputs.tag }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+  update-and-push-charts:
+    name: Update and Push Helm Charts
+    runs-on: ubuntu-latest
+    needs: build-and-push-images
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Install Helm
+        uses: azure/setup-helm@v4
+        with:
+          version: '3.14.0'
+
+      - name: Install yq
+        uses: mikefarah/yq@v4
+        with:
+          version: v4.40.5
+
+      - name: Extract release tag and version
+        id: version
+        run: |
+          bash .github/scripts/extract-version.sh "${{ github.event.release.tag_name }}"
+
+      - name: Update agent-management-platform chart
+        run: |
+          IMAGE_UPDATES='[
+            {"path": ".agentManagerService.image", "repository": "${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/agent-management-platform", "tag": "${{ steps.version.outputs.tag }}"},
+            {"path": ".console.image", "repository": "${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/console", "tag": "${{ steps.version.outputs.tag }}"}
+          ]'
+          bash .github/scripts/update-helm-chart.sh \
+            "agent-management-platform" \
+            "./deployment/helm-charts/agent-management-platform" \
+            "${{ steps.version.outputs.version }}" \
+            "${{ steps.version.outputs.tag }}" \
+            "${{ env.HELM_REGISTRY }}" \
+            "${{ env.REGISTRY }}" \
+            "${{ env.REGISTRY_ORG }}" \
+            "${{ secrets.GITHUB_TOKEN }}" \
+            "$IMAGE_UPDATES"
+
+      - name: Update build-ci chart
+        run: |
+          bash .github/scripts/update-helm-chart.sh \
+            "build-ci" \
+            "./deployment/helm-charts/build-ci" \
+            "${{ steps.version.outputs.version }}" \
+            "${{ steps.version.outputs.tag }}" \
+            "${{ env.HELM_REGISTRY }}" \
+            "${{ env.REGISTRY }}" \
+            "${{ env.REGISTRY_ORG }}" \
+            "${{ secrets.GITHUB_TOKEN }}" \
+            "[]"
+
+      - name: Update observability-dataprepper chart
+        run: |
+          IMAGE_UPDATES='[
+            {"path": ".tracesObserverService.image", "repository": "${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/traces-observer-service", "tag": "${{ steps.version.outputs.tag }}"}
+          ]'
+          bash .github/scripts/update-helm-chart.sh \
+            "observability-dataprepper" \
+            "./deployment/helm-charts/observability-dataprepper" \
+            "${{ steps.version.outputs.version }}" \
+            "${{ steps.version.outputs.tag }}" \
+            "${{ env.HELM_REGISTRY }}" \
+            "${{ env.REGISTRY }}" \
+            "${{ env.REGISTRY_ORG }}" \
+            "${{ secrets.GITHUB_TOKEN }}" \
+            "$IMAGE_UPDATES"
+
+  update-install-helpers:
+    name: Update install-helpers.sh
+    runs-on: ubuntu-latest
+    needs: update-and-push-charts
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          persist-credentials: true
+
+      - name: Extract release tag and version
+        id: version
+        run: |
+          bash .github/scripts/extract-version.sh "${{ github.event.release.tag_name }}"
+
+      - name: Configure Git
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+
+      - name: Update chart versions in install-helpers.sh
+        run: |
+          bash .github/scripts/update-install-helpers.sh \
+            "${{ steps.version.outputs.version }}" \
+            "./quick-start/install-helpers.sh"
+
+      - name: Commit and push changes
+        run: |
+          git add ./quick-start/install-helpers.sh
+          if git diff --staged --quiet; then
+            echo "No changes to commit"
+          else
+            git commit -m "chore: update chart versions to ${{ steps.version.outputs.tag }}"
+            git push
+            echo "Committed and pushed chart version updates"
+          fi
+
+  create-release-artifacts:
+    name: Create Release Artifacts
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Extract release tag
+        id: tag
+        run: |
+          TAG="${{ github.event.release.tag_name }}"
+          echo "tag=$TAG" >> $GITHUB_OUTPUT
+          echo "Release tag: $TAG"
+
+      - name: Create release artifacts
+        id: artifacts
+        run: |
+          bash .github/scripts/create-release-artifacts.sh \
+            "${{ steps.tag.outputs.tag }}" \
+            "./quick-start" \
+            "quick-start"
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            ${{ steps.artifacts.outputs.archive }}
+            ${{ steps.artifacts.outputs.checksum }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Log artifact details
+        run: |
+          echo "Release artifacts created:"
+          echo "  - ${{ steps.artifacts.outputs.archive }}"
+          echo "  - ${{ steps.artifacts.outputs.checksum }}"
