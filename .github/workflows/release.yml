@@ -20,7 +20,7 @@ jobs:
       matrix:
         service:
           - agent-manager-service
-          - console
+          # - console
           - traces-observer-service
     steps:
       - name: Checkout code
