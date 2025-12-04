@@ -22,6 +22,7 @@ jobs:
       cancel-in-progress: false
     permissions:
       contents: write
+      packages: write
     steps:
       - name: Validate release tag
         id: validate
@@ -174,12 +175,34 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build and push images and charts
+        id: build-push
+        uses: ./.github/actions/build-and-push
+        with:
+          release-tag: ${{ steps.validate.outputs.tag }}
+          registry: ${{ env.REGISTRY }}
+          registry-org: ${{ env.REGISTRY_ORG }}
+          helm-registry: ${{ env.HELM_REGISTRY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
       - name: Mark release as successful
         if: success()
         run: |
           echo "✅ Release ${{ steps.validate.outputs.tag }} created successfully"
-          echo "Helm charts updated and committed. Build and push workflow will be triggered."
+          echo "✅ All images and charts built and pushed successfully"
         shell: bash
+
+      - name: Cleanup on failure
+        if: failure()
+        uses: ./.github/actions/cleanup-release
+        with:
+          registry: ${{ env.REGISTRY }}
+          registry-org: ${{ env.REGISTRY_ORG }}
+          tag: ${{ steps.validate.outputs.tag }}
+          helm-registry: ${{ env.HELM_REGISTRY }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          services: "agent-manager-service|console|traces-observer-service"
+          charts: "agent-management-platform|build-ci|observability-dataprepper"
 
       - name: Revert git commit on failure
         if: failure() && steps.commit-changes.outputs.committed == 'true'
@@ -193,7 +216,7 @@ jobs:
       - name: Fail workflow on error
         if: failure()
         run: |
-          echo "❌ Release creation failed"
+          echo "❌ Release creation failed - cleanup completed"
           exit 1
         shell: bash
 
