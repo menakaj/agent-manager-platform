@@ -157,6 +157,7 @@ jobs:
   create-release-artifacts:
     name: Create Release Artifacts
     runs-on: ubuntu-latest
+    needs: update-and-push-charts
     permissions:
       contents: write
     steps:
