@@ -70,10 +70,7 @@ jobs:
 
       - name: Update agent-management-platform chart
         run: |
-          IMAGE_UPDATES='[
-            {"path": ".agentManagerService.image", "repository": "${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/agent-manager-service", "tag": "${{ steps.version.outputs.tag }}"},
-            {"path": ".console.image", "repository": "${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/console", "tag": "${{ steps.version.outputs.tag }}"}
-          ]'
+          IMAGE_UPDATES=".agentManagerService.image:${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/agent-manager-service:${{ steps.version.outputs.tag }}|.console.image:${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/console:${{ steps.version.outputs.tag }}"
           bash .github/scripts/update-helm-chart.sh \
             "agent-management-platform" \
             "./deployment/helm-charts/agent-management-platform" \
@@ -96,13 +93,11 @@ jobs:
             "${{ env.REGISTRY }}" \
             "${{ env.REGISTRY_ORG }}" \
             "${{ secrets.GITHUB_TOKEN }}" \
-            "[]"
+            ""
 
       - name: Update observability-dataprepper chart
         run: |
-          IMAGE_UPDATES='[
-            {"path": ".tracesObserverService.image", "repository": "${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/traces-observer-service", "tag": "${{ steps.version.outputs.tag }}"}
-          ]'
+          IMAGE_UPDATES=".tracesObserverService.image:${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/traces-observer-service:${{ steps.version.outputs.tag }}"
           bash .github/scripts/update-helm-chart.sh \
             "observability-dataprepper" \
             "./deployment/helm-charts/observability-dataprepper" \
@@ -157,7 +152,6 @@ jobs:
   create-release-artifacts:
     name: Create Release Artifacts
     runs-on: ubuntu-latest
-    needs: update-and-push-charts
     permissions:
       contents: write
     steps:

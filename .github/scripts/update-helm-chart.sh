@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # Update Helm chart version and image tags, then package and push
-# Usage: update-helm-chart.sh <chart-name> <chart-dir> <version> <tag> <helm-registry> <registry> <registry-org> <github-token> [image-updates-json]
+# Usage: update-helm-chart.sh <chart-name> <chart-dir> <version> <tag> <helm-registry> <registry> <registry-org> <github-token> [image-updates]
+# Image updates format: "path1:repo1:tag1|path2:repo2:tag2" (pipe-separated, colon-separated within each)
+# Example: ".agentManagerService.image:ghcr.io/wso2/agent-manager-service:v1.0.0|.console.image:ghcr.io/wso2/console:v1.0.0"
 
 set -euo pipefail
 
@@ -12,11 +14,12 @@ HELM_REGISTRY="${5:-}"
 REGISTRY="${6:-ghcr.io}"
 REGISTRY_ORG="${7:-}"
 GITHUB_TOKEN="${8:-}"
-IMAGE_UPDATES="${9:-[]}"
+IMAGE_UPDATES="${9:-}"
 
 if [ -z "$CHART_NAME" ] || [ -z "$CHART_DIR" ] || [ -z "$VERSION" ] || [ -z "$TAG" ] || [ -z "$HELM_REGISTRY" ] || [ -z "$REGISTRY_ORG" ] || [ -z "$GITHUB_TOKEN" ]; then
   echo "Error: Missing required arguments"
-  echo "Usage: update-helm-chart.sh <chart-name> <chart-dir> <version> <tag> <helm-registry> <registry> <registry-org> <github-token> [image-updates-json]"
+  echo "Usage: update-helm-chart.sh <chart-name> <chart-dir> <version> <tag> <helm-registry> <registry> <registry-org> <github-token> [image-updates]"
+  echo "Image updates format: \"path1:repo1:tag1|path2:repo2:tag2\""
   exit 1
 fi
 
@@ -36,22 +39,37 @@ else
 fi
 
 # Update values.yaml images if provided
-if [ -f "$CHART_DIR/values.yaml" ] && [ "$IMAGE_UPDATES" != "[]" ]; then
-  echo "$IMAGE_UPDATES" | yq eval -P - | while IFS= read -r update; do
+# Format: "path1:repo1:tag1|path2:repo2:tag2" (pipe-separated, colon-separated within each)
+if [ -f "$CHART_DIR/values.yaml" ] && [ -n "$IMAGE_UPDATES" ]; then
+  # Save original IFS
+  OLD_IFS="$IFS"
+  
+  # Split by pipe to get individual updates
+  IFS='|' read -ra UPDATES <<< "$IMAGE_UPDATES"
+  
+  for update in "${UPDATES[@]}"; do
     if [ -n "$update" ]; then
-      path=$(echo "$update" | yq eval '.path' -)
-      repo=$(echo "$update" | yq eval '.repository' -)
-      img_tag=$(echo "$update" | yq eval '.tag' -)
+      # Split by colon to get path, repo, and tag
+      IFS=':' read -r path repo img_tag <<< "$update"
       
       if [ -n "$path" ] && [ -n "$repo" ] && [ -n "$img_tag" ]; then
         yq eval -i "$path.repository = \"$repo\"" "$CHART_DIR/values.yaml" || true
         yq eval -i "$path.tag = \"$img_tag\"" "$CHART_DIR/values.yaml" || true
         echo "Updated image: $path -> $repo:$img_tag"
+      else
+        echo "Warning: Invalid image update format: $update (expected path:repo:tag)"
       fi
     fi
   done
+  
+  # Restore original IFS
+  IFS="$OLD_IFS"
 else
-  echo "Skipping values.yaml update (file not found or no image updates specified)"
+  if [ ! -f "$CHART_DIR/values.yaml" ]; then
+    echo "Skipping values.yaml update (file not found)"
+  else
+    echo "Skipping values.yaml update (no image updates specified)"
+  fi
 fi
 
 # Log in to registry
