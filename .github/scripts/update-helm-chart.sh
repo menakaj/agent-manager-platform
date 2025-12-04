@@ -79,6 +79,6 @@ echo "$GITHUB_TOKEN" | helm registry login -u "$ACTOR" --password-stdin "$REGIST
 
 # Package and push
 helm package "$CHART_DIR" --version "$VERSION"
-helm push "${CHART_NAME}-${VERSION}.tgz" "${HELM_REGISTRY}/${CHART_NAME}"
+helm push "${CHART_NAME}-${VERSION}.tgz" "${HELM_REGISTRY}/"
 echo "Pushed $CHART_NAME chart version $VERSION"
 
