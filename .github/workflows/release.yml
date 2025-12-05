@@ -206,7 +206,7 @@ jobs:
 
   package-charts:
     name: Package and Push Helm Charts
-    needs: prepare-release
+    needs: build-images
     runs-on: ubuntu-latest
     permissions:
       contents: read
