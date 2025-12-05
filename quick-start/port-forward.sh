@@ -7,7 +7,7 @@
 set -eo pipefail
 
 # Default namespaces (can be overridden via environment variables)
-AMP_NS="${AMP_NS:-agent-management-platform}"
+AMP_NS="${AMP_NS:-wso2-amp}"
 OBSERVABILITY_NS="${OBSERVABILITY_NS:-openchoreo-observability-plane}"
 DATA_PLANE_NS="${DATA_PLANE_NS:-openchoreo-data-plane}"
 CLUSTER_NAME="${CLUSTER_NAME:-openchoreo-local}"
@@ -146,7 +146,7 @@ main() {
 
     # Port forward Console (3000)
     log_info "Setting up Console port forwarding (3000)..."
-    if nodeport_console=$(get_nodeport "agent-management-platform-console" "$AMP_NS"); then
+    if nodeport_console=$(get_nodeport "amp-console" "$AMP_NS"); then
         setup_port_forward 3000 "$nodeport_console" "Console"
     else
         log_warning "Skipping Console (service not ready or not NodePort type)"
@@ -155,7 +155,7 @@ main() {
 
     # Port forward Agent Manager Service (8080)
     log_info "Setting up Agent Manager Service port forwarding (8080)..."
-    if nodeport_agent_mgr=$(get_nodeport "agent-management-platform-agent-manager-service" "$AMP_NS"); then
+    if nodeport_agent_mgr=$(get_nodeport "amp-api" "$AMP_NS"); then
         setup_port_forward 8080 "$nodeport_agent_mgr" "Agent Manager Service"
     else
         log_warning "Skipping Agent Manager Service (service not ready or not NodePort type)"
@@ -164,7 +164,7 @@ main() {
 
     # Port forward Traces Observer Service (9098)
     log_info "Setting up Traces Observer Service port forwarding (9098)..."
-    if nodeport_traces=$(get_nodeport "traces-observer-service" "$OBSERVABILITY_NS"); then
+    if nodeport_traces=$(get_nodeport "amp-traces-observer" "$OBSERVABILITY_NS"); then
         setup_port_forward 9098 "$nodeport_traces" "Traces Observer Service"
     else
         log_warning "Skipping Traces Observer Service (service not found or not NodePort type)"

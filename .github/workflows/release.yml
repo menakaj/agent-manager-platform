@@ -78,7 +78,7 @@ jobs:
       - name: Commit version updates
         id: commit-changes
         run: |
-          git add ./quick-start/install-helpers.sh ./deployment/helm-charts/*/Chart.yaml ./deployment/helm-charts/*/values.yaml 2>/dev/null || true
+          git add ./quick-start/install-helpers.sh ./deployments/helm-charts/*/Chart.yaml ./deployments/helm-charts/*/values.yaml 2>/dev/null || true
           
           if git diff --staged --quiet; then
             echo "No changes to commit"
@@ -128,16 +128,16 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      # - name: Build and push amp-console
-      #   if: hashFiles('console/Dockerfile') != ''
-      #   uses: ./.github/actions/build-docker-image
-      #   with:
-      #     service-dir: console
-      #     image-name: amp-console
-      #     registry: ${{ env.REGISTRY }}
-      #     registry-org: ${{ env.REGISTRY_ORG }}
-      #     tag: ${{ inputs.target-release }}
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
+      - name: Build and push amp-console
+        if: hashFiles('console/Dockerfile') != ''
+        uses: ./.github/actions/build-docker-image
+        with:
+          service-dir: console
+          image-name: amp-console
+          registry: ${{ env.REGISTRY }}
+          registry-org: ${{ env.REGISTRY_ORG }}
+          tag: ${{ inputs.target-release }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push amp-api
         if: hashFiles('agent-management-service/Dockerfile') != ''
@@ -160,17 +160,6 @@ jobs:
           registry-org: ${{ env.REGISTRY_ORG }}
           tag: ${{ inputs.target-release }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
-
-      # - name: Build and push amp-python-instrumentation-provider
-      #   if: hashFiles('python-instrumentation-provider/Dockerfile') != ''
-      #   uses: ./.github/actions/build-docker-image
-      #   with:
-      #     service-dir: python-instrumentation-provider
-      #     image-name: amp-python-instrumentation-provider
-      #     registry: ${{ env.REGISTRY }}
-      #     registry-org: ${{ env.REGISTRY_ORG }}
-      #     tag: ${{ inputs.target-release }}
-      #     github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push amp-quick-start
         if: hashFiles('quick-start/Dockerfile') != ''
