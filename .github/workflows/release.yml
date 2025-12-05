@@ -206,7 +206,7 @@ jobs:
 
   package-charts:
     name: Package and Push Helm Charts
-    needs: prepare-release
+    needs: build-images
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -290,7 +290,7 @@ jobs:
         id: artifacts
         run: |
           bash .github/scripts/create-release-artifacts.sh \
-            "amp/v${{ inputs.target-release }}" \
+            "v${{ inputs.target-release }}" \
             "./quick-start" \
             "quick-start"
         shell: bash
