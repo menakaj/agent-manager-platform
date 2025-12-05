@@ -206,7 +206,7 @@ jobs:
 
   package-charts:
     name: Package and Push Helm Charts
-    needs: build-images
+    needs: prepare-release
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -271,9 +271,11 @@ jobs:
       - name: Generate changelog
         id: changelog
         run: |
+          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
           CHANGELOG=$(bash .github/scripts/generate-changelog.sh \
             "${{ inputs.last-release-tag }}" \
-            "amp/v${{ inputs.target-release }}")
+            "amp/v${{ inputs.target-release }}" \
+            "$REPO_URL")
           
           if [ -z "$CHANGELOG" ]; then
             CHANGELOG="- No changes"
@@ -295,7 +297,49 @@ jobs:
             "quick-start"
         shell: bash
 
+      - name: Prepare release files
+        id: release-files
+        run: |
+          ARCHIVE="${{ steps.artifacts.outputs.archive }}"
+          CHECKSUM="${{ steps.artifacts.outputs.checksum }}"
+          
+          FILES_LIST=""
+          
+          if [ -n "$ARCHIVE" ] && [ -f "$ARCHIVE" ]; then
+            echo "Found archive: $ARCHIVE"
+            FILES_LIST="$ARCHIVE"
+          else
+            echo "Archive not found: $ARCHIVE"
+          fi
+          
+          if [ -n "$CHECKSUM" ] && [ -f "$CHECKSUM" ]; then
+            echo "Found checksum: $CHECKSUM"
+            if [ -n "$FILES_LIST" ]; then
+              FILES_LIST="$FILES_LIST"$'\n'"$CHECKSUM"
+            else
+              FILES_LIST="$CHECKSUM"
+            fi
+          else
+            echo "Checksum not found: $CHECKSUM"
+          fi
+          
+          if [ -n "$FILES_LIST" ]; then
+            {
+              echo "files<<EOF"
+              printf "%s" "$FILES_LIST"
+              echo ""
+              echo "EOF"
+            } >> $GITHUB_OUTPUT
+            echo "Files to attach:"
+            echo "$FILES_LIST"
+          else
+            echo "files=" >> $GITHUB_OUTPUT
+            echo "No files to attach"
+          fi
+        shell: bash
+
       - name: Create GitHub release
+        id: create-release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: amp/v${{ inputs.target-release }}
@@ -320,8 +364,8 @@ jobs:
             
             ### Artifacts
             ${{ steps.artifacts.outputs.archive != '' && format('  - `{0}`\n  - `{1}`', steps.artifacts.outputs.archive, steps.artifacts.outputs.checksum) || '  No artifacts' }}
-          files: ${{ steps.artifacts.outputs.archive != '' && format('{0}\n{1}', steps.artifacts.outputs.archive, steps.artifacts.outputs.checksum) || '' }}
+          files: ${{ steps.release-files.outputs.files }}
           draft: false
-          prerelease: ${{ inputs.is-pre-release }}
+          prerelease: false
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
