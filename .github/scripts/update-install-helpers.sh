@@ -13,12 +13,9 @@ if [ -z "$VERSION" ]; then
 fi
 
 if [ ! -f "$FILE" ]; then
-  echo "Error: File not found: $FILE"
-  exit 1
+  echo "⚠️ File not found: $FILE, skipping"
+  exit 0
 fi
-
-# Create backup
-cp "$FILE" "${FILE}.bak"
 
 # Update AMP_CHART_VERSION
 sed -i.bak "s/\(AMP_CHART_VERSION=\"\${AMP_CHART_VERSION:-\)[^}]*\(}\"\)/\1${VERSION}\2/" "$FILE"
@@ -32,7 +29,5 @@ sed -i.bak "s/\(OBSERVABILITY_CHART_VERSION=\"\${OBSERVABILITY_CHART_VERSION:-\)
 # Remove backup files
 rm -f "${FILE}.bak"
 
-echo "Updated chart versions in $FILE to ${VERSION}"
-echo "Verifying changes:"
-grep -E "(AMP_CHART_VERSION|BUILD_CI_CHART_VERSION|OBSERVABILITY_CHART_VERSION)" "$FILE" | head -3
+echo "✅ Updated chart versions in $FILE to ${VERSION}"
 
