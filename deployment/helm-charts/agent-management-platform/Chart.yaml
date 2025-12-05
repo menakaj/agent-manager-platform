@@ -2,19 +2,16 @@ apiVersion: v2
 name: agent-management-platform
 description: Helm chart for WSO2 Agent Management Platform - Deploy, manage, and govern AI agents at scale
 type: application
-version: 0.1.0
-appVersion: "0.1.0"
-
+version: 0.0.10
+appVersion: "amp/v0.0.10"
 keywords:
   - agent-management
   - ai-agents
   - observability
   - wso2
-
 maintainers:
   - name: WSO2
     url: https://wso2.com
-
 dependencies:
   # PostgreSQL Database
   - name: postgresql
