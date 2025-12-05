@@ -2,5 +2,5 @@ apiVersion: v2
 name: observability-dataprepper
 description: A Helm chart to add Tracing functionality for the Agent Management Platform, by Deploying and Configuring Data Prepper and the Traces Observer Service.
 type: application
-version: 0.1.1
-appVersion: "0.1.0"
+version: 0.1.0
+appVersion: "amp/v0.1.0"

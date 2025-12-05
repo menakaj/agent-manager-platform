@@ -3,4 +3,4 @@ name: build-ci
 description: A Helm chart for agent manager build CI workflows
 type: application
 version: 0.1.0
-appVersion: "0.1.0"
+appVersion: "amp/v0.1.0"
