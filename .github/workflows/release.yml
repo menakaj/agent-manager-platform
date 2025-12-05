@@ -365,7 +365,8 @@ jobs:
             ### Artifacts
             ${{ steps.artifacts.outputs.archive != '' && format('  - `{0}`\n  - `{1}`', steps.artifacts.outputs.archive, steps.artifacts.outputs.checksum) || '  No artifacts' }}
           files: ${{ steps.release-files.outputs.files }}
-          draft: false
-          prerelease: false
+          draft: true
+          prerelease: ${{ inputs.is-pre-release }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
