@@ -61,20 +61,6 @@ jobs:
           git config --local user.name "GitHub Action"
         shell: bash
 
-      - name: Create release branch
-        id: create-branch
-        run: |
-          BRANCH_NAME="amp-${{ inputs.target-release }}"
-          if git show-ref --verify --quiet refs/heads/$BRANCH_NAME; then
-            echo "Branch $BRANCH_NAME already exists, checking it out"
-            git checkout $BRANCH_NAME
-          else
-            git checkout -b $BRANCH_NAME
-          fi
-          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
-          echo "✅ Created/checked out branch: $BRANCH_NAME"
-        shell: bash
-
       - name: Update Helm chart versions
         run: |
           bash .github/scripts/update-helm-charts.sh \
@@ -102,13 +88,6 @@ jobs:
             echo "committed=true" >> $GITHUB_OUTPUT
             echo "✅ Committed version updates"
           fi
-        shell: bash
-
-      - name: Push branch
-        if: steps.commit-changes.outputs.committed == 'true'
-        run: |
-          git push origin ${{ steps.create-branch.outputs.branch }}
-          echo "✅ Pushed branch"
         shell: bash
 
       - name: Create git tag
@@ -288,56 +267,6 @@ jobs:
           echo "Generated changelog from ${{ inputs.last-release-tag }} to amp/v${{ inputs.target-release }}"
         shell: bash
 
-      - name: Create release artifacts
-        id: artifacts
-        run: |
-          bash .github/scripts/create-release-artifacts.sh \
-            "v${{ inputs.target-release }}" \
-            "./quick-start" \
-            "quick-start"
-        shell: bash
-
-      - name: Prepare release files
-        id: release-files
-        run: |
-          ARCHIVE="${{ steps.artifacts.outputs.archive }}"
-          CHECKSUM="${{ steps.artifacts.outputs.checksum }}"
-          
-          FILES_LIST=""
-          
-          if [ -n "$ARCHIVE" ] && [ -f "$ARCHIVE" ]; then
-            echo "Found archive: $ARCHIVE"
-            FILES_LIST="$ARCHIVE"
-          else
-            echo "Archive not found: $ARCHIVE"
-          fi
-          
-          if [ -n "$CHECKSUM" ] && [ -f "$CHECKSUM" ]; then
-            echo "Found checksum: $CHECKSUM"
-            if [ -n "$FILES_LIST" ]; then
-              FILES_LIST="$FILES_LIST"$'\n'"$CHECKSUM"
-            else
-              FILES_LIST="$CHECKSUM"
-            fi
-          else
-            echo "Checksum not found: $CHECKSUM"
-          fi
-          
-          if [ -n "$FILES_LIST" ]; then
-            {
-              echo "files<<EOF"
-              printf "%s" "$FILES_LIST"
-              echo ""
-              echo "EOF"
-            } >> $GITHUB_OUTPUT
-            echo "Files to attach:"
-            echo "$FILES_LIST"
-          else
-            echo "files=" >> $GITHUB_OUTPUT
-            echo "No files to attach"
-          fi
-        shell: bash
-
       - name: Create GitHub release
         id: create-release
         uses: softprops/action-gh-release@v2
@@ -361,11 +290,9 @@ jobs:
             
             ### Changelog
             ${{ steps.changelog.outputs.changelog }}
-            
-            ### Artifacts
-            ${{ steps.artifacts.outputs.archive != '' && format('  - `{0}`\n  - `{1}`', steps.artifacts.outputs.archive, steps.artifacts.outputs.checksum) || '  No artifacts' }}
-          files: ${{ steps.release-files.outputs.files }}
-          draft: false
-          prerelease: false
+
+          draft: true
+          prerelease: ${{ inputs.is-pre-release }}
+          generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
