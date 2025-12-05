@@ -25,13 +25,10 @@ RUN curl -fsSL https://kind.sigs.k8s.io/dl/v0.27.0/kind-linux-${TARGETARCH} > /t
 
 ENV KUBECONFIG="/state/kube/config-internal.yaml"
 
-COPY bootstrap.sh /app/bootstrap.sh
-RUN chmod +x /app/bootstrap.sh
 COPY install-helpers.sh /app/install-helpers.sh
 RUN chmod +x /app/install-helpers.sh
 
 COPY kind-config.yaml /app/kind-config.yaml
-RUN chmod +x /app/kind-config.yaml
 
 COPY install.sh /app/install.sh
 RUN chmod +x /app/install.sh
