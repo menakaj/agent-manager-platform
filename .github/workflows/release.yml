@@ -75,10 +75,17 @@ jobs:
             "./quick-start/install-helpers.sh"
         shell: bash
 
+      - name: Update documentation files
+        run: |
+          bash .github/scripts/update-docs-versions.sh \
+            "${{ inputs.target-release }}" \
+            "${{ env.REGISTRY_ORG }}"
+        shell: bash
+
       - name: Commit version updates
         id: commit-changes
         run: |
-          git add ./quick-start/install-helpers.sh ./deployments/helm-charts/*/Chart.yaml ./deployments/helm-charts/*/values.yaml 2>/dev/null || true
+          git add ./quick-start/install-helpers.sh ./deployments/helm-charts/*/Chart.yaml ./deployments/helm-charts/*/values.yaml ./docs/quick-start.md ./docs/install/single-cluster.md 2>/dev/null || true
           
           if git diff --staged --quiet; then
             echo "No changes to commit"
@@ -143,7 +150,7 @@ jobs:
         if: hashFiles('agent-manager-service/Dockerfile') != ''
         uses: ./.github/actions/build-docker-image
         with:
-          service-dir: agent-management-service
+          service-dir: agent-manager-service
           image-name: amp-api
           registry: ${{ env.REGISTRY }}
           registry-org: ${{ env.REGISTRY_ORG }}
@@ -264,13 +271,6 @@ jobs:
           name: Release amp/v${{ inputs.target-release }}
           body: |
             ## Release amp/v${{ inputs.target-release }}
-            
-            ### Docker Images
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-console:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-api:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-trace-observer:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-python-instrumentation-provider:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-quick-start:${{ inputs.target-release }}`
             
             ### Helm Charts
             - `${{ env.HELM_REGISTRY }}/agent-management-platform:${{ inputs.target-release }}`

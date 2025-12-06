@@ -42,7 +42,7 @@ fi
 if [ -d "./deployments/helm-charts/wso2-amp-observability-extension" ]; then
   yq eval -i ".version = \"$TARGET_VERSION\"" "./deployments/helm-charts/wso2-amp-observability-extension/Chart.yaml"
   yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployments/helm-charts/wso2-amp-observability-extension/Chart.yaml"
-  if [ -f "./deployments/helm-charts/observability-dataprepper/values.yaml" ]; then
+  if [ -f "./deployments/helm-charts/wso2-amp-observability-extension/values.yaml" ]; then
     yq eval -i ".tracesObserverService.image.tag = \"$TARGET_VERSION\"" "./deployments/helm-charts/wso2-amp-observability-extension/values.yaml" || true
   fi
   echo "Updated wso2-amp-observability-extension chart"

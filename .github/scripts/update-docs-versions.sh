@@ -1,0 +1,46 @@
+#!/usr/bin/env bash
+# Update version references in documentation files
+# Usage: update-docs-versions.sh <target-version> <registry-org>
+
+set -euo pipefail
+
+TARGET_VERSION="${1:-}"
+REGISTRY_ORG="${2:-wso2}"
+
+if [ -z "$TARGET_VERSION" ]; then
+  echo "Error: Version is required"
+  echo "Usage: update-docs-versions.sh <target-version> [registry-org]"
+  exit 1
+fi
+
+echo "Updating documentation files with version $TARGET_VERSION (registry: ${REGISTRY_ORG})..."
+
+# Update quick-start.md - Docker image version
+if [ -f "./docs/quick-start.md" ]; then
+  # Update the amp-quick-start image version (handles both wso2 and menakaj registries)
+  sed -i.bak -E "s|ghcr\.io/(wso2|menakaj)/amp-quick-start:v[0-9]+\.[0-9]+\.[0-9]+|ghcr.io/${REGISTRY_ORG}/amp-quick-start:v${TARGET_VERSION}|g" "./docs/quick-start.md"
+  rm -f "./docs/quick-start.md.bak"
+  echo "✅ Updated docs/quick-start.md"
+else
+  echo "⚠️ File not found: ./docs/quick-start.md, skipping"
+fi
+
+# Update single-cluster.md - Chart versions
+if [ -f "./docs/install/single-cluster.md" ]; then
+  # Update AMP_CHART_VERSION
+  sed -i.bak "s|export AMP_CHART_VERSION=\"[^\"]*\"|export AMP_CHART_VERSION=\"${TARGET_VERSION}\"|g" "./docs/install/single-cluster.md"
+  
+  # Update OBSERVABILITY_CHART_VERSION
+  sed -i.bak "s|export OBSERVABILITY_CHART_VERSION=\"[^\"]*\"|export OBSERVABILITY_CHART_VERSION=\"${TARGET_VERSION}\"|g" "./docs/install/single-cluster.md"
+  
+  # Update BUILD_CI_CHART_VERSION
+  sed -i.bak "s|export BUILD_CI_CHART_VERSION=\"[^\"]*\"|export BUILD_CI_CHART_VERSION=\"${TARGET_VERSION}\"|g" "./docs/install/single-cluster.md"
+  
+  rm -f "./docs/install/single-cluster.md.bak"
+  echo "✅ Updated docs/install/single-cluster.md"
+else
+  echo "⚠️ File not found: ./docs/install/single-cluster.md, skipping"
+fi
+
+echo "✅ Updated all documentation files with version ${TARGET_VERSION}"
+
