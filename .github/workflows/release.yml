@@ -195,7 +195,7 @@ jobs:
         run: |
           bash .github/scripts/package-helm-chart.sh \
             "agent-management-platform" \
-            "./deployment/helm-charts/agent-management-platform" \
+            "./deployments/helm-charts/agent-management-platform" \
             "${{ inputs.target-release }}" \
             "${{ env.HELM_REGISTRY }}" \
             "${{ secrets.GITHUB_TOKEN }}"
@@ -206,7 +206,7 @@ jobs:
         run: |
           bash .github/scripts/package-helm-chart.sh \
             "build-ci" \
-            "./deployment/helm-charts/build-ci" \
+            "./deployments/helm-charts/build-ci" \
             "${{ inputs.target-release }}" \
             "${{ env.HELM_REGISTRY }}" \
             "${{ secrets.GITHUB_TOKEN }}"
@@ -217,7 +217,7 @@ jobs:
         run: |
           bash .github/scripts/package-helm-chart.sh \
             "observability-dataprepper" \
-            "./deployment/helm-charts/observability-dataprepper" \
+            "./deployments/helm-charts/observability-dataprepper" \
             "${{ inputs.target-release }}" \
             "${{ env.HELM_REGISTRY }}" \
             "${{ secrets.GITHUB_TOKEN }}"

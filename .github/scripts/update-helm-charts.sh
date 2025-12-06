@@ -21,29 +21,29 @@ if ! command -v yq &> /dev/null; then
 fi
 
 # Update agent-management-platform chart
-if [ -d "./deployment/helm-charts/agent-management-platform" ]; then
-  yq eval -i ".version = \"$TARGET_VERSION\"" "./deployment/helm-charts/agent-management-platform/Chart.yaml"
-  yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployment/helm-charts/agent-management-platform/Chart.yaml"
-  if [ -f "./deployment/helm-charts/agent-management-platform/values.yaml" ]; then
-    yq eval -i ".agentManagerService.image.tag = \"$TARGET_VERSION\"" "./deployment/helm-charts/agent-management-platform/values.yaml" || true
-    yq eval -i ".console.image.tag = \"$TARGET_VERSION\"" "./deployment/helm-charts/agent-management-platform/values.yaml" || true
+if [ -d "./deployments/helm-charts/agent-management-platform" ]; then
+  yq eval -i ".version = \"$TARGET_VERSION\"" "./deployments/helm-charts/agent-management-platform/Chart.yaml"
+  yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployments/helm-charts/agent-management-platform/Chart.yaml"
+  if [ -f "./deployments/helm-charts/agent-management-platform/values.yaml" ]; then
+    yq eval -i ".agentManagerService.image.tag = \"$TARGET_VERSION\"" "./deployments/helm-charts/agent-management-platform/values.yaml" || true
+    yq eval -i ".console.image.tag = \"$TARGET_VERSION\"" "./deployments/helm-charts/agent-management-platform/values.yaml" || true
   fi
   echo "Updated agent-management-platform chart"
 fi
 
 # Update build-ci chart
-if [ -d "./deployment/helm-charts/build-ci" ]; then
-  yq eval -i ".version = \"$TARGET_VERSION\"" "./deployment/helm-charts/build-ci/Chart.yaml"
-  yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployment/helm-charts/build-ci/Chart.yaml"
+if [ -d "./deployments/helm-charts/build-ci" ]; then
+  yq eval -i ".version = \"$TARGET_VERSION\"" "./deployments/helm-charts/build-ci/Chart.yaml"
+  yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployments/helm-charts/build-ci/Chart.yaml"
   echo "Updated build-ci chart"
 fi
 
 # Update observability-dataprepper chart
-if [ -d "./deployment/helm-charts/observability-dataprepper" ]; then
-  yq eval -i ".version = \"$TARGET_VERSION\"" "./deployment/helm-charts/observability-dataprepper/Chart.yaml"
-  yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployment/helm-charts/observability-dataprepper/Chart.yaml"
-  if [ -f "./deployment/helm-charts/observability-dataprepper/values.yaml" ]; then
-    yq eval -i ".tracesObserverService.image.tag = \"$TARGET_VERSION\"" "./deployment/helm-charts/observability-dataprepper/values.yaml" || true
+if [ -d "./deployments/helm-charts/observability-dataprepper" ]; then
+  yq eval -i ".version = \"$TARGET_VERSION\"" "./deployments/helm-charts/observability-dataprepper/Chart.yaml"
+  yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployments/helm-charts/observability-dataprepper/Chart.yaml"
+  if [ -f "./deployments/helm-charts/observability-dataprepper/values.yaml" ]; then
+    yq eval -i ".tracesObserverService.image.tag = \"$TARGET_VERSION\"" "./deployments/helm-charts/observability-dataprepper/values.yaml" || true
   fi
   echo "Updated observability-dataprepper chart"
 fi
