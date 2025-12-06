@@ -82,6 +82,13 @@ jobs:
             "amp/v${{ inputs.target-release }}"
         shell: bash
 
+      - name: Update documentation versions
+        run: |
+          bash .github/scripts/update-docs-versions.sh \
+            "${{ inputs.target-release }}" \
+            "${{ env.REGISTRY_ORG }}"
+        shell: bash
+
       - name: Update install-helpers.sh
         run: |
           bash .github/scripts/update-install-helpers.sh \
@@ -92,8 +99,8 @@ jobs:
       - name: Commit version updates
         id: commit-changes
         run: |
-          git add ./quick-start/install-helpers.sh ./deployments/helm-charts/*/Chart.yaml ./deployments/helm-charts/*/values.yaml 2>/dev/null || true
-          
+          git add ./quick-start/install-helpers.sh ./deployments/helm-charts/*/Chart.yaml ./deployments/helm-charts/*/values.yaml ./docs/quick-start.md ./docs/install/single-cluster.md 2>/dev/null || true
+
           if git diff --staged --quiet; then
             echo "No changes to commit"
             echo "committed=false" >> $GITHUB_OUTPUT
