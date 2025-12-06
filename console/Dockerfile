@@ -2,7 +2,8 @@
 # Multi-stage build for optimized image size
 
 # Stage 1: Build stage
-FROM node:20.19-slim AS builder
+# Use native platform for build to avoid QEMU emulation slowdown
+FROM --platform=$BUILDPLATFORM node:20.19-slim AS builder
 
 # Install necessary build tools
 RUN apt-get update && \
