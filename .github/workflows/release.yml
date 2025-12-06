@@ -178,6 +178,7 @@ jobs:
           registry-org: ${{ env.REGISTRY_ORG }}
           tag: v${{ inputs.target-release }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
+          platforms: linux/amd64,linux/arm64
 
   package-charts:
     name: Package and Push Helm Charts

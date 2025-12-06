@@ -22,20 +22,29 @@ inputs:
     description: 'GitHub token for authentication'
     required: true
   platforms:
-    description: 'Comma-separated list of platforms to build for (e.g., linux/amd64,linux/arm64)'
+    description: 'Comma-separated list of platforms to build for (e.g., linux/amd64,linux/arm64). If not specified, builds for linux/amd64 only.'
     required: false
-    default: 'linux/amd64,linux/arm64'
 
 runs:
   using: 'composite'
   steps:
+    - name: Set default platform
+      id: set-platform
+      shell: bash
+      run: |
+        if [ -z "${{ inputs.platforms }}" ]; then
+          echo "platforms=linux/amd64" >> $GITHUB_OUTPUT
+        else
+          echo "platforms=${{ inputs.platforms }}" >> $GITHUB_OUTPUT
+        fi
+
     - name: Build and push Docker image
       uses: docker/build-push-action@v5
       with:
         context: ./${{ inputs.service-dir }}
         file: ./${{ inputs.service-dir }}/Dockerfile
         push: true
-        platforms: ${{ inputs.platforms }}
+        platforms: ${{ steps.set-platform.outputs.platforms }}
         tags: ${{ inputs.registry }}/${{ inputs.registry-org }}/${{ inputs.image-name }}:${{ inputs.tag }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -43,6 +52,6 @@ runs:
     - name: Log image details
       run: |
         echo "Built and pushed: ${{ inputs.registry }}/${{ inputs.registry-org }}/${{ inputs.image-name }}:${{ inputs.tag }}"
-        echo "Platforms: ${{ inputs.platforms }}"
+        echo "Platforms: ${{ steps.set-platform.outputs.platforms }}"
       shell: bash
 
