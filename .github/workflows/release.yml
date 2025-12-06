@@ -150,12 +150,12 @@ jobs:
           tag: ${{ inputs.target-release }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push amp-trace-observer
+      - name: Build and push amp-traces-observer
         if: hashFiles('traces-observer-service/Dockerfile') != ''
         uses: ./.github/actions/build-docker-image
         with:
           service-dir: traces-observer-service
-          image-name: amp-trace-observer
+          image-name: amp-traces-observer
           registry: ${{ env.REGISTRY }}
           registry-org: ${{ env.REGISTRY_ORG }}
           tag: ${{ inputs.target-release }}
@@ -191,33 +191,33 @@ jobs:
           version: '3.14.0'
 
       - name: Package and push agent-management-platform chart
-        if: hashFiles('deployments/helm-charts/agent-management-platform/Chart.yaml') != ''
+        if: hashFiles('deployments/helm-charts/wso2-ai-agent-management-platform/Chart.yaml') != ''
         run: |
           bash .github/scripts/package-helm-chart.sh \
-            "agent-management-platform" \
-            "./deployments/helm-charts/agent-management-platform" \
+            "wso2-ai-agent-management-platform" \
+            "./deployments/helm-charts/wso2-ai-agent-management-platform" \
             "${{ inputs.target-release }}" \
             "${{ env.HELM_REGISTRY }}" \
             "${{ secrets.GITHUB_TOKEN }}"
         shell: bash
 
       - name: Package and push build-ci chart
-        if: hashFiles('deployments/helm-charts/build-ci/Chart.yaml') != ''
+        if: hashFiles('deployments/helm-charts/wso2-amp-build-extension/Chart.yaml') != ''
         run: |
           bash .github/scripts/package-helm-chart.sh \
-            "build-ci" \
-            "./deployments/helm-charts/build-ci" \
+            "wso2-amp-build-extension" \
+            "./deployments/helm-charts/wso2-amp-build-extension" \
             "${{ inputs.target-release }}" \
             "${{ env.HELM_REGISTRY }}" \
             "${{ secrets.GITHUB_TOKEN }}"
         shell: bash
 
       - name: Package and push observability-dataprepper chart
-        if: hashFiles('deployments/helm-charts/observability-dataprepper/Chart.yaml') != ''
+        if: hashFiles('deployments/helm-charts/wso2-amp-observability-extension/Chart.yaml') != ''
         run: |
           bash .github/scripts/package-helm-chart.sh \
-            "observability-dataprepper" \
-            "./deployments/helm-charts/observability-dataprepper" \
+            "wso2-amp-observability-extension" \
+            "./deployments/helm-charts/wso2-amp-observability-extension" \
             "${{ inputs.target-release }}" \
             "${{ env.HELM_REGISTRY }}" \
             "${{ secrets.GITHUB_TOKEN }}"
