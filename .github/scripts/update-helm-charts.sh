@@ -15,10 +15,10 @@ fi
 
 # Find all Chart.yaml files and replace 0.0.0-dev
 find ./deployments/helm-charts -name "Chart.yaml" -type f | while read -r chart_file; do
-  # Replace version: 0.0.0-dev with TARGET_VERSION
-  sed -i.bak "s/version: 0\.0\.0-dev/version: $TARGET_VERSION/g" "$chart_file"
+  # Replace version: 0.0.0-dev with TARGET_VERSION (using | as delimiter to avoid conflicts with / in version)
+  sed -i.bak "s|version: 0\.0\.0-dev|version: $TARGET_VERSION|g" "$chart_file"
   # Replace appVersion: "0.0.0-dev" with RELEASE_TAG
-  sed -i.bak "s/appVersion: \"0\.0\.0-dev\"/appVersion: \"$RELEASE_TAG\"/g" "$chart_file"
+  sed -i.bak "s|appVersion: \"0\.0\.0-dev\"|appVersion: \"$RELEASE_TAG\"|g" "$chart_file"
   # Remove backup files
   rm -f "${chart_file}.bak"
 done
@@ -26,7 +26,7 @@ done
 # Find all values.yaml files and replace 0.0.0-dev in image tags
 find ./deployments/helm-charts -name "values.yaml" -type f | while read -r values_file; do
   # Replace tag: "0.0.0-dev" with TARGET_VERSION
-  sed -i.bak "s/tag: \"0\.0\.0-dev\"/tag: \"$TARGET_VERSION\"/g" "$values_file"
+  sed -i.bak "s|tag: \"0\.0\.0-dev\"|tag: \"$TARGET_VERSION\"|g" "$values_file"
   # Remove backup files
   rm -f "${values_file}.bak"
 done
