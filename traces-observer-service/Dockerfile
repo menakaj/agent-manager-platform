@@ -1,5 +1,5 @@
 # Build stage
-FROM golang:1.25-alpine AS builder
+FROM --platform=$BUILDPLATFORM golang:1.25-alpine AS builder
 
 # Add build args for cross-platform support
 ARG TARGETOS
@@ -15,7 +15,8 @@ RUN go mod download
 # Copy the source code as the last step
 COPY . .
 
-# Build the binary with optimizations using target platform
+# Build the binary with optimizations using Go's native cross-compilation
+# This runs natively on the build platform (amd64) and cross-compiles for target platform
 RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -a \
     -installsuffix cgo \

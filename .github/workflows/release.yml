@@ -197,7 +197,7 @@ jobs:
           image-name: ${{ matrix.image.name }}
           registry: ${{ env.REGISTRY }}
           registry-org: ${{ env.REGISTRY_ORG }}
-          tag: ${{ inputs.target-release }}
+          tag: v${{ inputs.target-release }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
   package-charts:
