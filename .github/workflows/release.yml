@@ -64,8 +64,8 @@ jobs:
       - name: Update Helm chart versions
         run: |
           bash .github/scripts/update-helm-charts.sh \
-            "${{ inputs.target-release }}" \
-            "amp/v${{ inputs.target-release }}"
+            "v${{ inputs.target-release }}" \
+            "v${{ inputs.target-release }}"
         shell: bash
 
       - name: Update install-helpers.sh
