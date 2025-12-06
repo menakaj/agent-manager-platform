@@ -18,23 +18,30 @@ echo "Updating documentation files with version $TARGET_VERSION (registry: ${REG
 # Update quick-start.md - Docker image version
 if [ -f "./docs/quick-start.md" ]; then
   # Update the amp-quick-start image version (handles both wso2 and menakaj registries)
-  sed -i.bak -E "s|ghcr\.io/(wso2|menakaj)/amp-quick-start:v[0-9]+\.[0-9]+\.[0-9]+|ghcr.io/${REGISTRY_ORG}/amp-quick-start:v${TARGET_VERSION}|g" "./docs/quick-start.md"
+  # Use # as delimiter to avoid conflict with | in the pattern
+  sed -i.bak -E "s#ghcr\.io/(wso2|menakaj)/amp-quick-start:v[0-9]+\.[0-9]+\.[0-9]+#ghcr.io/${REGISTRY_ORG}/amp-quick-start:v${TARGET_VERSION}#g" "./docs/quick-start.md"
   rm -f "./docs/quick-start.md.bak"
   echo "✅ Updated docs/quick-start.md"
 else
   echo "⚠️ File not found: ./docs/quick-start.md, skipping"
 fi
 
-# Update single-cluster.md - Chart versions
+# Update single-cluster.md - Chart versions and registry
 if [ -f "./docs/install/single-cluster.md" ]; then
+  # Update HELM_CHART_REGISTRY (handles both wso2 and menakaj registries)
+  sed -i.bak -E "s#export HELM_CHART_REGISTRY=\"ghcr\.io/(wso2|menakaj)\"#export HELM_CHART_REGISTRY=\"ghcr.io/${REGISTRY_ORG}\"#g" "./docs/install/single-cluster.md"
+  
   # Update AMP_CHART_VERSION
-  sed -i.bak "s|export AMP_CHART_VERSION=\"[^\"]*\"|export AMP_CHART_VERSION=\"${TARGET_VERSION}\"|g" "./docs/install/single-cluster.md"
+  sed -i.bak "s#export AMP_CHART_VERSION=\"[^\"]*\"#export AMP_CHART_VERSION=\"${TARGET_VERSION}\"#g" "./docs/install/single-cluster.md"
   
   # Update OBSERVABILITY_CHART_VERSION
-  sed -i.bak "s|export OBSERVABILITY_CHART_VERSION=\"[^\"]*\"|export OBSERVABILITY_CHART_VERSION=\"${TARGET_VERSION}\"|g" "./docs/install/single-cluster.md"
+  sed -i.bak "s#export OBSERVABILITY_CHART_VERSION=\"[^\"]*\"#export OBSERVABILITY_CHART_VERSION=\"${TARGET_VERSION}\"#g" "./docs/install/single-cluster.md"
   
   # Update BUILD_CI_CHART_VERSION
-  sed -i.bak "s|export BUILD_CI_CHART_VERSION=\"[^\"]*\"|export BUILD_CI_CHART_VERSION=\"${TARGET_VERSION}\"|g" "./docs/install/single-cluster.md"
+  sed -i.bak "s#export BUILD_CI_CHART_VERSION=\"[^\"]*\"#export BUILD_CI_CHART_VERSION=\"${TARGET_VERSION}\"#g" "./docs/install/single-cluster.md"
+  
+  # Update registry reference in Default Configuration section
+  sed -i.bak -E "s#- Registry: \`ghcr\.io/(wso2|menakaj)\`#- Registry: \`ghcr.io/${REGISTRY_ORG}\`#g" "./docs/install/single-cluster.md"
   
   rm -f "./docs/install/single-cluster.md.bak"
   echo "✅ Updated docs/install/single-cluster.md"
