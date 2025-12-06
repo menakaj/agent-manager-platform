@@ -37,7 +37,7 @@ agentManagerService:
   replicaCount: 1
 
   image:
-    repository: ghcr.io/wso2/amp-api
+    repository: ghcr.io/menakaj/amp-api
     tag: "0.0.0-dev"
     pullPolicy: IfNotPresent
 
@@ -138,7 +138,7 @@ console:
   replicaCount: 1
 
   image:
-    repository: ghcr.io/wso2/amp-console
+    repository: ghcr.io/menakaj/amp-console
     tag: "0.0.0-dev"
     pullPolicy: Always
 
@@ -201,7 +201,7 @@ dbMigration:
   enabled: true
 
   image:
-    repository: ghcr.io/wso2/amp-api
+    repository: ghcr.io/menakaj/amp-api
     tag: "0.0.0-dev"
     pullPolicy: IfNotPresent
 
