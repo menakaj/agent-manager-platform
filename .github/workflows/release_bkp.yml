@@ -1,4 +1,4 @@
-name: WSO2 AI Agent Management Platform Release
+name: Release
 
 on:
   workflow_dispatch:
@@ -17,7 +17,7 @@ on:
         required: true
         type: string
       is-pre-release:
-        description: 'This is a pre-release'
+        description: 'Whether this is a pre-release'
         required: false
         type: boolean
         default: false
@@ -61,38 +61,31 @@ jobs:
           git config --local user.name "GitHub Action"
         shell: bash
 
-      - name: Create release branch
-        id: create-branch
-        run: |
-          BRANCH_NAME="amp-${{ inputs.target-release }}"
-          if git show-ref --verify --quiet refs/heads/$BRANCH_NAME; then
-            echo "Branch $BRANCH_NAME already exists, checking it out"
-            git checkout $BRANCH_NAME
-          else
-            git checkout -b $BRANCH_NAME
-          fi
-          echo "branch=$BRANCH_NAME" >> $GITHUB_OUTPUT
-          echo "✅ Created/checked out branch: $BRANCH_NAME"
-        shell: bash
-
       - name: Update Helm chart versions
         run: |
           bash .github/scripts/update-helm-charts.sh \
-            "${{ inputs.target-release }}" \
-            "amp/v${{ inputs.target-release }}"
+            "v${{ inputs.target-release }}" \
+            "v${{ inputs.target-release }}"
         shell: bash
 
       - name: Update install-helpers.sh
         run: |
           bash .github/scripts/update-install-helpers.sh \
-            "${{ inputs.target-release }}" \
+            "v${{ inputs.target-release }}" \
             "./quick-start/install-helpers.sh"
+        shell: bash
+
+      - name: Update documentation files
+        run: |
+          bash .github/scripts/update-docs-versions.sh \
+            "v${{ inputs.target-release }}" \
+            "${{ env.REGISTRY_ORG }}"
         shell: bash
 
       - name: Commit version updates
         id: commit-changes
         run: |
-          git add ./quick-start/install-helpers.sh ./deployments/helm-charts/*/Chart.yaml ./deployments/helm-charts/*/values.yaml 2>/dev/null || true
+          git add ./quick-start/install-helpers.sh ./deployments/helm-charts/*/Chart.yaml ./deployments/helm-charts/*/values.yaml ./docs/quick-start.md ./docs/install/single-cluster.md 2>/dev/null || true
           
           if git diff --staged --quiet; then
             echo "No changes to commit"
@@ -119,60 +112,13 @@ jobs:
           echo "✅ Created and pushed tag: $TAG"
         shell: bash
 
-  load-config:
-    name: Load Release Configuration
-    needs: prepare-release
-    runs-on: ubuntu-latest
-    outputs:
-      images: ${{ steps.set-matrix.outputs.images }}
-      charts: ${{ steps.set-matrix.outputs.charts }}
-    steps:
-      - name: Checkout code
-        uses: actions/checkout@v4
-        with:
-          ref: amp/v${{ inputs.target-release }}
-
-      - name: Load configuration and set matrix
-        id: set-matrix
-        run: |
-          CONFIG_FILE=".github/release-config.json"
-
-          # Read base configuration
-          CHARTS_BASE_PATH=$(jq -r '.config["charts-base-path"]' "$CONFIG_FILE")
-
-          # Expand images configuration (add resolved paths)
-          IMAGES=$(jq -c '[.images[] | {
-            name: .name,
-            "service-dir": .dir,
-            dockerfile: (.dir + "/Dockerfile")
-          }]' "$CONFIG_FILE")
-
-          # Expand charts configuration (add resolved paths)
-          CHARTS=$(jq -c --arg base "$CHARTS_BASE_PATH" '[.charts[] | {
-            name: .,
-            path: ($base + "/" + .),
-            "chart-file": ($base + "/" + . + "/Chart.yaml")
-          }]' "$CONFIG_FILE")
-
-          echo "images=$IMAGES" >> $GITHUB_OUTPUT
-          echo "charts=$CHARTS" >> $GITHUB_OUTPUT
-
-          echo "✅ Loaded configuration:"
-          echo "  - Images: $(echo $IMAGES | jq '. | length')"
-          echo "  - Charts: $(echo $CHARTS | jq '. | length')"
-        shell: bash
-
   build-images:
-    name: Build ${{ matrix.image.name }}
-    needs: load-config
+    name: Build and Push Images
+    needs: prepare-release
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: true
-      matrix:
-        image: ${{ fromJson(needs.load-config.outputs.images) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -189,28 +135,58 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push ${{ matrix.image.name }}
-        if: hashFiles(matrix.image.dockerfile) != ''
+      - name: Build and push amp-console
+        if: hashFiles('console/Dockerfile') != ''
         uses: ./.github/actions/build-docker-image
         with:
-          service-dir: ${{ matrix.image.service-dir }}
-          image-name: ${{ matrix.image.name }}
+          service-dir: console
+          image-name: amp-console
           registry: ${{ env.REGISTRY }}
           registry-org: ${{ env.REGISTRY_ORG }}
-          tag: ${{ inputs.target-release }}
+          tag: v${{ inputs.target-release }}
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
+      - name: Build and push amp-api
+        if: hashFiles('agent-manager-service/Dockerfile') != ''
+        uses: ./.github/actions/build-docker-image
+        with:
+          service-dir: agent-manager-service
+          image-name: amp-api
+          registry: ${{ env.REGISTRY }}
+          registry-org: ${{ env.REGISTRY_ORG }}
+          tag: v${{ inputs.target-release }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push amp-traces-observer
+        if: hashFiles('traces-observer-service/Dockerfile') != ''
+        uses: ./.github/actions/build-docker-image
+        with:
+          service-dir: traces-observer-service
+          image-name: amp-traces-observer
+          registry: ${{ env.REGISTRY }}
+          registry-org: ${{ env.REGISTRY_ORG }}
+          tag: v${{ inputs.target-release }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and push amp-quick-start
+        if: hashFiles('quick-start/Dockerfile') != ''
+        uses: ./.github/actions/build-docker-image
+        with:
+          service-dir: quick-start
+          image-name: amp-quick-start
+          registry: ${{ env.REGISTRY }}
+          registry-org: ${{ env.REGISTRY_ORG }}
+          tag: v${{ inputs.target-release }}
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          platforms: linux/amd64,linux/arm64
+
   package-charts:
-    name: Package ${{ matrix.chart.name }}
-    needs: load-config
+    name: Package and Push Helm Charts
+    needs: build-images
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    strategy:
-      fail-fast: true
-      matrix:
-        chart: ${{ fromJson(needs.load-config.outputs.charts) }}
     steps:
       - name: Checkout code
         uses: actions/checkout@v4
@@ -222,13 +198,35 @@ jobs:
         with:
           version: '3.14.0'
 
-      - name: Package and push ${{ matrix.chart.name }}
-        if: hashFiles(matrix.chart.chart-file) != ''
+      - name: Package and push agent-management-platform chart
+        if: hashFiles('deployments/helm-charts/wso2-ai-agent-management-platform/Chart.yaml') != ''
         run: |
           bash .github/scripts/package-helm-chart.sh \
-            "${{ matrix.chart.name }}" \
-            "${{ matrix.chart.path }}" \
-            "${{ inputs.target-release }}" \
+            "wso2-ai-agent-management-platform" \
+            "./deployments/helm-charts/wso2-ai-agent-management-platform" \
+            "v${{ inputs.target-release }}" \
+            "${{ env.HELM_REGISTRY }}" \
+            "${{ secrets.GITHUB_TOKEN }}"
+        shell: bash
+
+      - name: Package and push build-ci chart
+        if: hashFiles('deployments/helm-charts/wso2-amp-build-extension/Chart.yaml') != ''
+        run: |
+          bash .github/scripts/package-helm-chart.sh \
+            "wso2-amp-build-extension" \
+            "./deployments/helm-charts/wso2-amp-build-extension" \
+            "v${{ inputs.target-release }}" \
+            "${{ env.HELM_REGISTRY }}" \
+            "${{ secrets.GITHUB_TOKEN }}"
+        shell: bash
+
+      - name: Package and push observability-dataprepper chart
+        if: hashFiles('deployments/helm-charts/wso2-amp-observability-extension/Chart.yaml') != ''
+        run: |
+          bash .github/scripts/package-helm-chart.sh \
+            "wso2-amp-observability-extension" \
+            "./deployments/helm-charts/wso2-amp-observability-extension" \
+            "v${{ inputs.target-release }}" \
             "${{ env.HELM_REGISTRY }}" \
             "${{ secrets.GITHUB_TOKEN }}"
         shell: bash
@@ -255,18 +253,12 @@ jobs:
           body: |
             ## Release amp/v${{ inputs.target-release }}
             
-            ### Docker Images
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-console:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-api:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-traces-observer:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-python-instrumentation-provider:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-quick-start:${{ inputs.target-release }}`
-            
             ### Helm Charts
-            - `${{ env.HELM_REGISTRY }}/agent-management-platform:${{ inputs.target-release }}`
-            - `${{ env.HELM_REGISTRY }}/build-ci:${{ inputs.target-release }}`
-            - `${{ env.HELM_REGISTRY }}/observability-dataprepper:${{ inputs.target-release }}`
-                        
+            - `${{ env.HELM_REGISTRY }}/wso2-ai-agent-management-platform:v${{ inputs.target-release }}`
+            - `${{ env.HELM_REGISTRY }}/wso2-amp-build-extension:v${{ inputs.target-release }}`
+            - `${{ env.HELM_REGISTRY }}/wso2-amp-observability-extension:v${{ inputs.target-release }}`
+            
+
           draft: true
           prerelease: ${{ inputs.is-pre-release }}
           generate_release_notes: true
