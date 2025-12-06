@@ -38,7 +38,7 @@ agentManagerService:
 
   image:
     repository: ghcr.io/menakaj/amp-api
-    tag: "0.0.0-dev"
+    tag: "v0.1.14"
     pullPolicy: IfNotPresent
 
   service:
@@ -139,7 +139,7 @@ console:
 
   image:
     repository: ghcr.io/menakaj/amp-console
-    tag: "0.0.0-dev"
+    tag: "v0.1.14"
     pullPolicy: Always
 
   service:
@@ -202,7 +202,7 @@ dbMigration:
 
   image:
     repository: ghcr.io/menakaj/amp-api
-    tag: "0.0.0-dev"
+    tag: "v0.1.14"
     pullPolicy: IfNotPresent
 
   resources:
