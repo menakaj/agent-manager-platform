@@ -24,8 +24,8 @@ on:
 
 env:
   REGISTRY: ghcr.io
-  REGISTRY_ORG: agent-mgt-platform
-  HELM_REGISTRY: oci://ghcr.io/agent-mgt-platform
+  REGISTRY_ORG: menakaj
+  HELM_REGISTRY: oci://ghcr.io/menakaj
 
 jobs:
   prepare-release:
