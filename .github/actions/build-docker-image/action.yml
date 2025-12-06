@@ -21,6 +21,10 @@ inputs:
   github-token:
     description: 'GitHub token for authentication'
     required: true
+  platforms:
+    description: 'Comma-separated list of platforms to build for (e.g., linux/amd64,linux/arm64)'
+    required: false
+    default: 'linux/amd64,linux/arm64'
 
 runs:
   using: 'composite'
@@ -31,6 +35,7 @@ runs:
         context: ./${{ inputs.service-dir }}
         file: ./${{ inputs.service-dir }}/Dockerfile
         push: true
+        platforms: ${{ inputs.platforms }}
         tags: ${{ inputs.registry }}/${{ inputs.registry-org }}/${{ inputs.image-name }}:${{ inputs.tag }}
         cache-from: type=gha
         cache-to: type=gha,mode=max
@@ -38,5 +43,6 @@ runs:
     - name: Log image details
       run: |
         echo "Built and pushed: ${{ inputs.registry }}/${{ inputs.registry-org }}/${{ inputs.image-name }}:${{ inputs.tag }}"
+        echo "Platforms: ${{ inputs.platforms }}"
       shell: bash
 
