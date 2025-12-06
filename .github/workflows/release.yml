@@ -140,7 +140,7 @@ jobs:
           github-token: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build and push amp-api
-        if: hashFiles('agent-management-service/Dockerfile') != ''
+        if: hashFiles('agent-manager-service/Dockerfile') != ''
         uses: ./.github/actions/build-docker-image
         with:
           service-dir: agent-management-service
@@ -191,7 +191,7 @@ jobs:
           version: '3.14.0'
 
       - name: Package and push agent-management-platform chart
-        if: hashFiles('deployment/helm-charts/agent-management-platform/Chart.yaml') != ''
+        if: hashFiles('deployments/helm-charts/agent-management-platform/Chart.yaml') != ''
         run: |
           bash .github/scripts/package-helm-chart.sh \
             "agent-management-platform" \
@@ -202,7 +202,7 @@ jobs:
         shell: bash
 
       - name: Package and push build-ci chart
-        if: hashFiles('deployment/helm-charts/build-ci/Chart.yaml') != ''
+        if: hashFiles('deployments/helm-charts/build-ci/Chart.yaml') != ''
         run: |
           bash .github/scripts/package-helm-chart.sh \
             "build-ci" \
@@ -213,7 +213,7 @@ jobs:
         shell: bash
 
       - name: Package and push observability-dataprepper chart
-        if: hashFiles('deployment/helm-charts/observability-dataprepper/Chart.yaml') != ''
+        if: hashFiles('deployments/helm-charts/observability-dataprepper/Chart.yaml') != ''
         run: |
           bash .github/scripts/package-helm-chart.sh \
             "observability-dataprepper" \
