@@ -2,10 +2,12 @@
 # Multi-stage build for optimized image size
 
 # Stage 1: Build stage
-FROM node:20.19-alpine AS builder
+FROM node:20.19-slim AS builder
 
 # Install necessary build tools
-RUN apk add --no-cache git gettext
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends git gettext && \
+    rm -rf /var/lib/apt/lists/*
 
 # Install pnpm and Rush globally
 RUN npm install -g pnpm@9.12.3 @microsoft/rush@5.157.0

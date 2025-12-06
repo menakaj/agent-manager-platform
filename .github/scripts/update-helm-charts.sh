@@ -13,40 +13,23 @@ if [ -z "$TARGET_VERSION" ] || [ -z "$RELEASE_TAG" ]; then
   exit 1
 fi
 
-# Install yq if not available
-if ! command -v yq &> /dev/null; then
-  echo "Installing yq..."
-  wget -qO /usr/local/bin/yq https://github.com/mikefarah/yq/releases/download/v4.40.5/yq_linux_amd64
-  chmod +x /usr/local/bin/yq
-fi
+# Find all Chart.yaml files and replace 0.0.0-dev
+find ./deployments/helm-charts -name "Chart.yaml" -type f | while read -r chart_file; do
+  # Replace version: 0.0.0-dev with TARGET_VERSION
+  sed -i.bak "s/version: 0\.0\.0-dev/version: $TARGET_VERSION/g" "$chart_file"
+  # Replace appVersion: "0.0.0-dev" with RELEASE_TAG
+  sed -i.bak "s/appVersion: \"0\.0\.0-dev\"/appVersion: \"$RELEASE_TAG\"/g" "$chart_file"
+  # Remove backup files
+  rm -f "${chart_file}.bak"
+done
 
-# Update wso2-ai-agent-management-platform chart
-if [ -d "./deployments/helm-charts/wso2-ai-agent-management-platform" ]; then
-  yq eval -i ".version = \"$TARGET_VERSION\"" "./deployments/helm-charts/wso2-ai-agent-management-platform/Chart.yaml"
-  yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployments/helm-charts/wso2-ai-agent-management-platform/Chart.yaml"
-  if [ -f "./deployments/helm-charts/wso2-ai-agent-management-platform/values.yaml" ]; then
-    yq eval -i ".agentManagerService.image.tag = \"$TARGET_VERSION\"" "./deployments/helm-charts/wso2-ai-agent-management-platform/values.yaml" || true
-    yq eval -i ".console.image.tag = \"$TARGET_VERSION\"" "./deployments/helm-charts/wso2-ai-agent-management-platform/values.yaml" || true
-  fi
-  echo "Updated wso2-ai-agent-management-platform chart"
-fi
-
-# Update build-ci chart
-if [ -d "./deployments/helm-charts/wso2-amp-build-extension" ]; then
-  yq eval -i ".version = \"$TARGET_VERSION\"" "./deployments/helm-charts/wso2-amp-build-extension/Chart.yaml"
-  yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployments/helm-charts/wso2-amp-build-extension/Chart.yaml"
-  echo "Updated build-ci chart"
-fi
-
-# Update observability-dataprepper chart
-if [ -d "./deployments/helm-charts/wso2-amp-observability-extension" ]; then
-  yq eval -i ".version = \"$TARGET_VERSION\"" "./deployments/helm-charts/wso2-amp-observability-extension/Chart.yaml"
-  yq eval -i ".appVersion = \"$RELEASE_TAG\"" "./deployments/helm-charts/wso2-amp-observability-extension/Chart.yaml"
-  if [ -f "./deployments/helm-charts/wso2-amp-observability-extension/values.yaml" ]; then
-    yq eval -i ".tracesObserverService.image.tag = \"$TARGET_VERSION\"" "./deployments/helm-charts/wso2-amp-observability-extension/values.yaml" || true
-  fi
-  echo "Updated wso2-amp-observability-extension chart"
-fi
+# Find all values.yaml files and replace 0.0.0-dev in image tags
+find ./deployments/helm-charts -name "values.yaml" -type f | while read -r values_file; do
+  # Replace tag: "0.0.0-dev" with TARGET_VERSION
+  sed -i.bak "s/tag: \"0\.0\.0-dev\"/tag: \"$TARGET_VERSION\"/g" "$values_file"
+  # Remove backup files
+  rm -f "${values_file}.bak"
+done
 
 echo "✅ Updated all Helm chart versions"
 
