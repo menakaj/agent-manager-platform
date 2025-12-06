@@ -244,26 +244,6 @@ jobs:
           fetch-depth: 0
           ref: amp/v${{ inputs.target-release }}
 
-      - name: Generate changelog
-        id: changelog
-        run: |
-          REPO_URL="${{ github.server_url }}/${{ github.repository }}"
-          CHANGELOG=$(bash .github/scripts/generate-changelog.sh \
-            "${{ inputs.last-release-tag }}" \
-            "amp/v${{ inputs.target-release }}" \
-            "$REPO_URL")
-          
-          if [ -z "$CHANGELOG" ]; then
-            CHANGELOG="- No changes"
-          fi
-          
-          echo "changelog<<EOF" >> $GITHUB_OUTPUT
-          echo "$CHANGELOG" >> $GITHUB_OUTPUT
-          echo "EOF" >> $GITHUB_OUTPUT
-          
-          echo "Generated changelog from ${{ inputs.last-release-tag }} to amp/v${{ inputs.target-release }}"
-        shell: bash
-
       - name: Create GitHub release
         id: create-release
         uses: softprops/action-gh-release@v2
@@ -278,8 +258,6 @@ jobs:
             - `${{ env.HELM_REGISTRY }}/wso2-amp-build-extension:v${{ inputs.target-release }}`
             - `${{ env.HELM_REGISTRY }}/wso2-amp-observability-extension:v${{ inputs.target-release }}`
             
-            ### Changelog
-            ${{ steps.changelog.outputs.changelog }}
 
           draft: true
           prerelease: ${{ inputs.is-pre-release }}

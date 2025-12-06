@@ -1,5 +1,9 @@
 FROM golang:1.25-alpine AS builder
 
+# Add build args for cross-platform support
+ARG TARGETOS
+ARG TARGETARCH
+
 WORKDIR /app
 
 COPY go.mod go.sum ./
@@ -10,8 +14,8 @@ RUN go mod download
 # Copy the source code as the last step
 COPY . .
 
-# Build the binary with optimizations
-RUN CGO_ENABLED=0 GOOS=linux GOARCH=amd64 go build \
+# Build the binary with optimizations using target platform
+RUN CGO_ENABLED=0 GOOS=${TARGETOS} GOARCH=${TARGETARCH} go build \
     -a \
     -installsuffix cgo \
     -ldflags="-w -s" \
