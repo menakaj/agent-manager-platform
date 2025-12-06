@@ -2,7 +2,6 @@
 global:
   imagePullSecrets: []
   storageClass: ""
-
 # PostgreSQL Database Configuration
 postgresql:
   enabled: true
@@ -30,28 +29,23 @@ postgresql:
       limits:
         memory: 512Mi
         cpu: 500m
-
 # Agent Manager Service Configuration
 agentManagerService:
   enabled: true
   replicaCount: 1
-
   image:
     repository: ghcr.io/wso2/amp-api
-    tag: "0.0.0-dev"
+    tag: "0.1.0"
     pullPolicy: IfNotPresent
-
   service:
     type: NodePort
     port: 8080
     targetPort: 8080
     annotations: {}
-
   observer:
     url: "http://observer.openchoreo-observability-plane:8080"
     username: "admin"
     password: "admin"
-
   resources:
     requests:
       memory: 256Mi
@@ -59,27 +53,23 @@ agentManagerService:
     limits:
       memory: 512Mi
       cpu: 500m
-
   autoscaling:
     enabled: true
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: ~
-
   # Health checks
   livenessProbe:
     tcpSocket:
       port: 8080
     initialDelaySeconds: 15
     periodSeconds: 10
-
   readinessProbe:
-      tcpSocket:
-        port: 8080
-      initialDelaySeconds: 5
-      periodSeconds: 10
-
+    tcpSocket:
+      port: 8080
+    initialDelaySeconds: 5
+    periodSeconds: 10
   # Application configuration
   config:
     serverHost: "0.0.0.0"
@@ -93,17 +83,14 @@ agentManagerService:
     observerURL: "http://observer.openchoreo-observability-plane:8080"
     observerUsername: "admin"
     observerPassword: "admin"
-
     # API Key configuration
     apiKey:
       header: "X-API-Key"
       value: "abc-def-123"
       existingSecret: ""
       existingSecretKey: "api-key"
-
     # Kubeconfig (empty for in-cluster, or provide config)
     kubeconfig: ""
-
     # OpenTelemetry configuration
     otel:
       instrumentationImage: "ghcr.io/open-telemetry/opentelemetry-operator/autoinstrumentation-python:latest"
@@ -115,7 +102,6 @@ agentManagerService:
       telemetryEnabled: "true"
       exporterInsecure: "true"
       exporterEndpoint: "http://data-prepper.openchoreo-observability-plane:4317"
-
   # Pod-level configurations
   podAnnotations: {}
   podLabels: {}
@@ -131,22 +117,18 @@ agentManagerService:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-
 # Console (Frontend) Configuration
 console:
   enabled: true
   replicaCount: 1
-
   image:
     repository: ghcr.io/wso2/amp-console
-    tag: "0.0.0-dev"
+    tag: "0.1.0"
     pullPolicy: Always
-
   service:
     type: NodePort
     port: 3000
     targetPort: 3000
-
   resources:
     requests:
       memory: 128Mi
@@ -154,18 +136,15 @@ console:
     limits:
       memory: 256Mi
       cpu: 200m
-
   autoscaling:
     enabled: false
     minReplicas: 1
     maxReplicas: 10
     targetCPUUtilizationPercentage: 80
     targetMemoryUtilizationPercentage: ~
-
   # Health checks
   livenessProbe: null
   readinessProbe: null
-
   # Frontend configuration
   config:
     # Authentication (set to "" to disable)
@@ -175,14 +154,11 @@ console:
       signInRedirectURL: ""
       signOutRedirectURL: ""
       existingSecret: ""
-
     # Disable auth for development
     disableAuth: "true"
-
     # Backend API URLs (will be auto-configured if empty)
-    apiBaseUrl: "http://localhost:8080"  # Defaults to: http://amp-api:8080
-    obsApiBaseUrl: "http://localhost:9098"  # Optional observability API
-
+    apiBaseUrl: "http://localhost:8080" # Defaults to: http://amp-api:8080
+    obsApiBaseUrl: "http://localhost:9098" # Optional observability API
   # Pod-level configurations
   podAnnotations: {}
   podLabels: {}
@@ -195,16 +171,13 @@ console:
   nodeSelector: {}
   tolerations: []
   affinity: {}
-
 # Database Migration Job Configuration
 dbMigration:
   enabled: true
-
   image:
     repository: ghcr.io/wso2/amp-api
     tag: "0.0.0-dev"
     pullPolicy: IfNotPresent
-
   resources:
     requests:
       memory: 128Mi
@@ -212,11 +185,9 @@ dbMigration:
     limits:
       memory: 256Mi
       cpu: 200m
-
   backoffLimit: 3
   podSecurityContext: {}
   securityContext: {}
-
 # Ingress Configuration
 ingress:
   enabled: true
@@ -233,14 +204,12 @@ ingress:
           pathType: ImplementationSpecific
           service: agent-manager-service
   tls: []
-
 # ServiceAccount Configuration
 serviceAccount:
   create: true
   name: "agent-management-platform"
   annotations: {}
   automount: true
-
 # RBAC Configuration
 rbac:
   create: true
@@ -250,10 +219,8 @@ rbac:
     - apiGroups: ["*"]
       resources: ["*"]
       verbs: ["*"]
-
 # Global volume mounts and volumes (optional)
 volumeMounts: []
 volumes: []
-
 # Common labels to add to all resources
 commonLabels: {}
