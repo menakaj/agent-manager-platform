@@ -706,7 +706,7 @@ setup_kind_cluster() {
 # Wait for Kind cluster to be ready
 wait_for_kind_cluster_ready() {
     local cluster_name="${1:-openchoreo-local}"
-    local timeout=120
+    local timeout=600
     local elapsed=0
     
     while [ $elapsed -lt $timeout ]; do
