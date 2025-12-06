@@ -14,7 +14,7 @@ RESET='\033[0m'
 
 # Configuration variables
 # Remote Helm chart repository and versions
-HELM_CHART_REGISTRY="${HELM_CHART_REGISTRY:-ghcr.io/menakaj}"
+HELM_CHART_REGISTRY="${HELM_CHART_REGISTRY:-ghcr.io/agent-mgt-platform}"
 AMP_CHART_VERSION="${AMP_CHART_VERSION:-0.0.0-dev}"
 BUILD_CI_CHART_VERSION="${BUILD_CI_CHART_VERSION:-0.0.0-dev}"
 OBSERVABILITY_CHART_VERSION="${OBSERVABILITY_CHART_VERSION:-0.0.0-dev}"
