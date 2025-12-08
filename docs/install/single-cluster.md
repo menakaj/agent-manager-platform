@@ -51,8 +51,8 @@ The core platform includes:
 
 ```bash
 # Set configuration variables
-export HELM_CHART_REGISTRY="ghcr.io/wso2"
-export AMP_CHART_VERSION="0.0.0-dev"  # Use your desired version
+export HELM_CHART_REGISTRY="ghcr.io/menakaj"
+export AMP_CHART_VERSION="0.1.16"  # Use your desired version
 export AMP_NS="wso2-amp"
 
 # Install the platform Helm chart
@@ -82,7 +82,7 @@ The observability stack includes DataPrepper and Traces Observer:
 
 ```bash
 # Set configuration variables
-export OBSERVABILITY_CHART_VERSION="0.0.0-dev"  # Use your desired version
+export OBSERVABILITY_CHART_VERSION="0.1.16"  # Use your desired version
 export OBSERVABILITY_NS="openchoreo-observability-plane"
 
 # Install observability Helm chart
@@ -100,7 +100,7 @@ Install workflow templates for building container images:
 
 ```bash
 # Set configuration variables
-export BUILD_CI_CHART_VERSION="0.0.0-dev"  # Use your desired version
+export BUILD_CI_CHART_VERSION="0.1.16"  # Use your desired version
 export BUILD_CI_NS="openchoreo-build-plane"
 
 # Install Build CI Helm chart
@@ -310,7 +310,7 @@ kubectl delete namespace wso2-amp
 
 ### Helm Chart Registry
 
-- Registry: `ghcr.io/wso2`
+- Registry: `ghcr.io/menakaj`
 - Charts:
   - `wso2-ai-agent-management-platform`
   - `wso2-amp-observability-extension`
