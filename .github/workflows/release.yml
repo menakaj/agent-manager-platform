@@ -12,15 +12,6 @@ on:
         description: 'Target release version (e.g., 0.0.1)'
         required: true
         type: string
-      last-release-tag:
-        description: 'Last release tag (e.g., amp/v0.0.0)'
-        required: true
-        type: string
-      is-pre-release:
-        description: 'This is a pre-release'
-        required: false
-        type: boolean
-        default: false
 
 env:
   REGISTRY: ghcr.io
@@ -123,6 +114,13 @@ jobs:
           git push origin "$TAG"
           echo "tag=$TAG" >> $GITHUB_OUTPUT
           echo "✅ Created and pushed tag: $TAG"
+        shell: bash
+
+      - name: Push branch
+        if: steps.commit-changes.outputs.committed == 'true'
+        run: |
+          git push origin "${{ steps.create-branch.outputs.branch }}"
+          echo "✅ Pushed branch"
         shell: bash
 
   load-config:
@@ -261,11 +259,11 @@ jobs:
             ## Release amp/v${{ inputs.target-release }}
             
             ### Docker Images
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-console:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-api:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-traces-observer:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-python-instrumentation-provider:${{ inputs.target-release }}`
-            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-quick-start:${{ inputs.target-release }}`
+            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-console:v${{ inputs.target-release }}`
+            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-api:v${{ inputs.target-release }}`
+            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-traces-observer:v${{ inputs.target-release }}`
+            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-python-instrumentation-provider:v${{ inputs.target-release }}`
+            - `${{ env.REGISTRY }}/${{ env.REGISTRY_ORG }}/amp-quick-start:v${{ inputs.target-release }}`
             
             ### Helm Charts
             - `${{ env.HELM_REGISTRY }}/agent-management-platform:${{ inputs.target-release }}`
@@ -273,7 +271,6 @@ jobs:
             - `${{ env.HELM_REGISTRY }}/observability-dataprepper:${{ inputs.target-release }}`
                         
           draft: true
-          prerelease: ${{ inputs.is-pre-release }}
           generate_release_notes: true
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
