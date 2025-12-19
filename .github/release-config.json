@@ -17,12 +17,13 @@
     },
     {
       "name": "amp-quick-start",
-      "dir": "quick-start"
+      "dir": "deployments/quick-start"
     }
   ],
   "charts": [
     "wso2-ai-agent-management-platform",
     "wso2-amp-build-extension",
-    "wso2-amp-observability-extension"
+    "wso2-amp-observability-extension",
+    "wso2-amp-platform-resources-extension"
   ]
 }
