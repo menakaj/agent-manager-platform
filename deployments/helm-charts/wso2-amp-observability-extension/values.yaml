@@ -6,7 +6,7 @@ tracesObserver:
   namespace: openchoreo-observability-plane
   replicaCount: 1
   image:
-    repository: ghcr.io/wso2/amp-traces-observer
+    repository: ghcr.io/menakaj/amp-traces-observer
     tag: "0.0.0-dev"
     pullPolicy: IfNotPresent
   port: 9098
