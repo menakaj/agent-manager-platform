@@ -129,7 +129,6 @@ jobs:
         shell: bash
 
       - name: Push branch
-        if: steps.commit-changes.outputs.committed == 'true'
         run: |
           git push origin "${{ steps.create-branch.outputs.branch }}"
           echo "✅ Pushed branch"

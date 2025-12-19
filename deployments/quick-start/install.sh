@@ -21,10 +21,9 @@ OPENCHOREO_VERSION="0.7.0"
 OC_RELEASE="release-v0.7"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 K3D_CONFIG="${SCRIPT_DIR}/k3d-config.yaml"
-AMP_RELEASE_VERSION="0.0.0-dev"
 
 # Source AMP installation helpers
-source "${SCRIPT_DIR}/install-amp-helpers.sh"
+source "${SCRIPT_DIR}/install-helpers.sh"
 
 # Timeouts (in seconds)
 TIMEOUT_K3D_READY=60
@@ -434,7 +433,7 @@ helm_install_idempotent \
     "openchoreo-control-plane" \
     "${TIMEOUT_CONTROL_PLANE}" \
     --version "${OPENCHOREO_VERSION}" \
-    --values "https://raw.githubusercontent.com/menakaj/agent-manager-platform/amp-${AMP_RELEASE_VERSION}/deployments/single-cluster/values-cp.yaml"
+    --values "https://raw.githubusercontent.com/menakaj/agent-manager-platform/amp-${VERSION}/deployments/single-cluster/values-cp.yaml"
 
 wait_for_pods "openchoreo-control-plane" "${TIMEOUT_CONTROL_PLANE}"
 
@@ -526,7 +525,7 @@ helm_install_idempotent \
     "${OBSERVABILITY_NS}" \
     "${TIMEOUT_OBSERVABILITY_PLANE}" \
     --version "${OPENCHOREO_VERSION}" \
-    --values "https://raw.githubusercontent.com/menakaj/agent-manager-platform/amp-${AMP_RELEASE_VERSION}/deployments/single-cluster/values-op.yaml"
+    --values "https://raw.githubusercontent.com/menakaj/agent-manager-platform/amp-${VERSION}/deployments/single-cluster/values-op.yaml"
 
 wait_for_deployments "openchoreo-observability-plane" "${TIMEOUT_OBSERVABILITY_PLANE}"
 wait_for_statefulsets "openchoreo-observability-plane" "${TIMEOUT_OBSERVABILITY_PLANE}"
