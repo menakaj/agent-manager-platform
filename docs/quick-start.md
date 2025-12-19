@@ -4,8 +4,16 @@ Get the Agent Management Platform running with a single command using a dev cont
 
 ## Prerequisites
 
-- **Docker** (Docker Desktop or Colima)
-- **Docker Compose** (optional, for easier container management)
+Ensure the following before you begin:
+
+- **Docker** (Engine 26.0+ recommended)
+    Allocate at least 8 GB RAM and 4 CPUs.
+
+- **Mac users**: Use Colima for best compatibility
+
+  ```sh
+  colima start --vm-type=vz --vz-rosetta --cpu 4 --memory 8
+  ```
 
 ## 🚀 Installation Using Dev Container
 
@@ -19,9 +27,9 @@ docker  run  -it --rm --name wso2-amp \
     -p 127.0.0.1:3000:3000 \
     -p 127.0.0.1:8080:8080 \
     -p 127.0.0.1:9098:9098 \
-    -p 127.0.0.1:21893:21893 \
+    -p 127.0.0.1:21893:4318 \
     -p 127.0.0.1:8443:8443 \
-  ghcr.io/wso2/amp-quick-start:v0.0.1
+  ghcr.io/wso2/amp-quick-start:v0.0.0-dev
 ```
 
 ### Step 2: Run Installation Inside Container
@@ -47,7 +55,6 @@ This installs everything you need:
 3. **OpenChoreo Installation**: Installs OpenChoreo Control Plane, Data Plane, Build Plane, and Observability Plane
 4. **Platform Installation**: Installs Agent Management Platform with PostgreSQL, API, and Console
 5. **Observability Setup**: Configures DataPrepper and Traces Observer
-6. **Port Forwarding**: Automatically sets up port forwarding for all services
 
 ## Access Your Platform
 
@@ -62,7 +69,7 @@ this will start port-forwarding for all the required services.
 - **Console**: http://localhost:3000
 - **API**: http://localhost:8080
 - **Traces Observer**: http://localhost:9098
-- **Data Prepper**: http://localhost:21893
+- **OTel Collector**: http://localhost:21893
 - **Gateway**: https://localhost:8443
 
 ## Uninstall
@@ -126,6 +133,6 @@ sudo usermod -aG docker $USER
 
 ## See Also
 
-- [Single Cluster Installation](./single-cluster.md) - Install on existing OpenChoreo cluster
-- [Main README](../../README.md) - Project overview and architecture
+- [Single Cluster Installation](./install/single-cluster.md) - Install on existing OpenChoreo cluster
+- [README](../README.md) - Project overview and architecture
 

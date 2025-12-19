@@ -1,13 +1,18 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package observabilitysvc
 
@@ -17,9 +22,9 @@ import (
 	"net/http"
 	"time"
 
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/clients/requests"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/config"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/models"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/clients/requests"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/config"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/models"
 )
 
 // Build log constants
@@ -29,7 +34,7 @@ const (
 )
 
 type ObservabilitySvcClient interface {
-	GetBuildLogs(ctx context.Context, orgName string, projName string, agentName string, buildName string, buildUuid string) (*models.BuildLogsResponse, error)
+	GetBuildLogs(ctx context.Context, buildName string) (*models.BuildLogsResponse, error)
 }
 
 type observabilitySvcClient struct {
@@ -46,17 +51,21 @@ func NewObservabilitySvcClient() ObservabilitySvcClient {
 }
 
 // GetBuildLogs retrieves build logs for a specific agent build from the observer service
-func (o *observabilitySvcClient) GetBuildLogs(ctx context.Context, orgName string, projName string, agentName string, buildName string, buildUuid string) (*models.BuildLogsResponse, error) {
+func (o *observabilitySvcClient) GetBuildLogs(ctx context.Context, buildName string) (*models.BuildLogsResponse, error) {
 	// temporary use config to get observer URL since the observer url in dataplane is cluster svc name which is not accessible outside the cluster,
 	// so we need to portforward the observer svc and use localhost:port to access the observer service
 	baseURL := config.GetConfig().Observer.URL
-	logsURL := fmt.Sprintf("%s/api/logs/component/%s", baseURL, agentName)
+	logsURL := fmt.Sprintf("%s/api/logs/build/%s", baseURL, buildName)
+
+	// Calculate time range: 30 days ago to now
+	endTime := time.Now()
+	startTime := endTime.Add(-30 * 24 * time.Hour)
 
 	requestBody := map[string]interface{}{
-		"buildId":   buildName,
-		"buildUuid": buildUuid,
-		"logLevels": []string{BuildLogLevelInfo},
-		"logType":   BuildLogTypeBuild,
+		"startTime": startTime.Format(time.RFC3339),
+		"endTime":   endTime.Format(time.RFC3339),
+		"limit":     1000,
+		"sortOrder": "asc",
 	}
 
 	req := &requests.HttpRequest{

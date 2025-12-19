@@ -1,13 +1,18 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package opensearch
 
@@ -49,22 +54,14 @@ func parseSpan(source map[string]interface{}) Span {
 		span.Kind = kind
 	}
 
-	// Extract service name from nested resource.attributes.service.name
+	// Extract component UID from resource
 	if resource, ok := source["resource"].(map[string]interface{}); ok {
-		if attributes, ok := resource["attributes"].(map[string]interface{}); ok {
-			if serviceName, ok := attributes["service.name"].(string); ok {
-				span.Service = serviceName
-			}
+		if componentUid, ok := resource["openchoreo.dev/component-uid"].(string); ok {
+			span.Service = componentUid
 		}
 
 		// Store the complete resource object
 		span.Resource = resource
-	}
-	// Fallback to serviceName if exists
-	if span.Service == "" {
-		if service, ok := source["serviceName"].(string); ok {
-			span.Service = service
-		}
 	}
 
 	// Parse timestamps
@@ -79,9 +76,12 @@ func parseSpan(source map[string]interface{}) Span {
 		}
 	}
 
-	// Parse duration
+	// Parse duration - try durationInNanos field first
 	if duration, ok := source["durationInNanos"].(float64); ok {
 		span.DurationInNanos = int64(duration)
+	} else if !span.StartTime.IsZero() && !span.EndTime.IsZero() {
+		// Fallback: calculate duration from timestamps if durationInNanos not present
+		span.DurationInNanos = span.EndTime.Sub(span.StartTime).Nanoseconds()
 	}
 
 	// Parse status

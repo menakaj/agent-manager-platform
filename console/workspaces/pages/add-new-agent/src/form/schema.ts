@@ -35,8 +35,7 @@ export interface AddAgentFormValues {
   interfaceType: InterfaceType;
   port?: number;
   basePath?: string;
-  openApiFileName?: string;
-  openApiContent?: string;
+  openApiPath?: string;
   env: Array<{ key?: string; value?: string }>;
 }
 
@@ -45,16 +44,16 @@ export const addAgentSchema = yup.object({
   displayName: yup
     .string()
     .trim()
-    .required('Display Name is required')
-    .min(3, 'Display name must be at least 3 characters')
-    .max(100, 'Display name must be at most 100 characters'),
+    .required('Name is required')
+    .min(3, 'Name must be at least 3 characters')
+    .max(100, 'Name must be at most 100 characters'),
   name: yup
     .string()
     .trim()
-    .required('Agent Name is required')
-    .matches(/^[a-z0-9-]+$/, 'Agent name must be lowercase letters, numbers, and hyphens only (no spaces)')
-    .min(3, 'Agent name must be at least 3 characters')
-    .max(50, 'Agent name must be at most 50 characters'),
+    .required('Name is required')
+    .matches(/^[a-z0-9-]+$/, 'Name must be lowercase letters, numbers, and hyphens only (no spaces)')
+    .min(3, 'Name must be at least 3 characters')
+    .max(50, 'Name must be at most 50 characters'),
   language: yup.string().trim().when('deploymentType', {
     is: 'new',
     then: (schema) => schema.required('Language is required'),
@@ -100,14 +99,9 @@ export const addAgentSchema = yup.object({
     then: (schema) => schema.required('Base path is required'),
     otherwise: (schema) => schema.notRequired(),
   }),
-  openApiFileName: yup.string().when('interfaceType', {
+  openApiPath: yup.string().trim().when('interfaceType', {
     is: 'CUSTOM',
-    then: (schema) => schema.required('OpenAPI spec file is required'),
-    otherwise: (schema) => schema.notRequired(),
-  }),
-  openApiContent: yup.string().when('interfaceType', {
-    is: 'CUSTOM',
-    then: (schema) => schema.required('OpenAPI spec content is required'),
+    then: (schema) => schema.required('OpenAPI spec path is required'),
     otherwise: (schema) => schema.notRequired(),
   }),
   env: yup

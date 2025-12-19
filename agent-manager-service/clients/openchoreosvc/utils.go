@@ -1,59 +1,38 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package openchoreosvc
 
 import (
+	"encoding/json"
 	"fmt"
-	"os"
-	"path/filepath"
 	"strings"
 	"time"
 
 	"github.com/google/uuid"
 	"github.com/openchoreo/openchoreo/api/v1alpha1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
+	"k8s.io/apimachinery/pkg/runtime"
 
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/config"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/models"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/spec"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/utils"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/config"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/models"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/spec"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/utils"
 )
-
-// getDefaultOpenAPISchema reads and returns the default OpenAPI schema from file system
-func getDefaultOpenAPISchema() (*string, error) {
-	schemaPath := filepath.Join("clients", "openchoreosvc", "default-openapi-schema.yaml")
-
-	content, err := os.ReadFile(schemaPath)
-	if err != nil {
-		return nil, err
-	}
-	schema := string(content)
-	return &schema, nil
-}
-
-// getBuildTemplateForLanguage determines the appropriate build template based on the programming language
-func getBuildTemplateForLanguage(language string) BuildTemplateNames {
-	for _, buildpack := range utils.Buildpacks {
-		if buildpack.Language == language {
-			if buildpack.Provider == "Google" {
-				return GoogleBuildpackBuildTemplate
-			}
-			if buildpack.Provider == "AMP-Ballerina" {
-				return BallerinaBuildpackBuildTemplate
-			}
-		}
-	}
-	return ""
-}
 
 func getLanguageVersionEnvVariable(language string) string {
 	for _, buildpack := range utils.Buildpacks {
@@ -64,42 +43,81 @@ func getLanguageVersionEnvVariable(language string) string {
 	return ""
 }
 
-func createComponentCR(orgName, projName string, req *spec.CreateAgentRequest) *v1alpha1.Component {
+func getOpenChoreoComponentType(provisioningType string, agentType string) ComponentType {
+	if provisioningType == string(utils.ExternalAgent) {
+		return ComponentTypeExternalAgentAPI
+	}
+	if provisioningType == string(utils.InternalAgent) && agentType == string(utils.AgentTypeAPI) {
+		return ComponentTypeInternalAgentAPI
+	}
+	// agent type is already validated in controller layer
+	return ""
+}
+
+func getOpenChoreoComponentWorkflow(language string) ComponentWorkflow {
+	for _, buildpack := range utils.Buildpacks {
+		if buildpack.Language == language {
+			if buildpack.Provider == string(utils.BuildPackProviderGoogle) {
+				return ComponentWorkflowGCB
+			}
+			if buildpack.Provider == string(utils.BuildPackProviderAMPBallerina) {
+				return ComponentWorkflowBallerina
+			}
+		}
+	}
+	// language is already validated in controller layer
+	return ""
+}
+
+func isGoogleBuildpack(language string) bool {
+	for _, buildpack := range utils.Buildpacks {
+		if buildpack.Language == language && buildpack.Provider == string(utils.BuildPackProviderGoogle) {
+			return true
+		}
+	}
+	return false
+}
+
+func getInputInterfaceConfig(req *spec.CreateAgentRequest) (int32, string) {
+	agentSubType := utils.StrPointerAsStr(req.AgentType.SubType, "")
+	if req.AgentType.Type == string(utils.AgentTypeAPI) && agentSubType == string(utils.AgentSubTypeChatAPI) {
+		return int32(config.GetConfig().DefaultChatAPI.DefaultHTTPPort), config.GetConfig().DefaultChatAPI.DefaultBasePath
+	}
+	return req.InputInterface.Port, req.InputInterface.BasePath
+}
+
+func getComponentWorkflowParametersForGoogleBuildPack(req *spec.CreateAgentRequest) map[string]interface{} {
+	return map[string]interface{}{
+		"buildpackConfigs": map[string]interface{}{
+			"googleEntryPoint":   req.RuntimeConfigs.RunCommand,
+			"languageVersion":    req.RuntimeConfigs.LanguageVersion,
+			"languageVersionKey": getLanguageVersionEnvVariable(req.RuntimeConfigs.Language),
+		},
+		"schemaFilePath": req.InputInterface.Schema.Path,
+	}
+}
+
+func getComponentWorkflowParametersForBallerinaBuildPack(req *spec.CreateAgentRequest) map[string]interface{} {
+	return map[string]interface{}{
+		"schemaFilePath": req.InputInterface.Schema.Path,
+	}
+}
+
+func createComponentCRForExternalAgents(orgName, projectName string, req *spec.CreateAgentRequest) (*v1alpha1.Component, error) {
 	annotations := map[string]string{
 		string(AnnotationKeyDisplayName): req.DisplayName,
 		string(AnnotationKeyDescription): utils.StrPointerAsStr(req.Description, ""),
 	}
-
 	labels := map[string]string{
-		string(LabelKeyComponentType): AgentComponentType,
+		string(LabelKeyProvisioningType): req.Provisioning.Type,
 	}
+	componentType := getOpenChoreoComponentType(req.Provisioning.Type, req.AgentType.Type)
 
-	// Determine build template based on language
-	templateRefName := getBuildTemplateForLanguage(req.RuntimeConfigs.Language)
-	params := []v1alpha1.Parameter{}
-	if templateRefName == GoogleBuildpackBuildTemplate {
-		params = []v1alpha1.Parameter{
-			{
-				Name:  GoogleEntryPoint,
-				Value: utils.StrPointerAsStr(req.RuntimeConfigs.RunCommand, ""),
-			},
-			{
-				Name:  LanguageVersion,
-				Value: req.RuntimeConfigs.LanguageVersion,
-			},
-			{
-				Name:  LanguageVersionKey,
-				Value: getLanguageVersionEnvVariable(req.RuntimeConfigs.Language),
-			},
-		}
-	}
-
-	templateRef := v1alpha1.TemplateRef{
-		Name:       string(templateRefName),
-		Parameters: params,
-	}
-
-	return &v1alpha1.Component{
+	componentCR := &v1alpha1.Component{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Component",
+			APIVersion: "openchoreo.dev/v1alpha1",
+		},
 		ObjectMeta: metav1.ObjectMeta{
 			Name:        req.Name,
 			Namespace:   orgName,
@@ -108,452 +126,665 @@ func createComponentCR(orgName, projName string, req *spec.CreateAgentRequest) *
 		},
 		Spec: v1alpha1.ComponentSpec{
 			Owner: v1alpha1.ComponentOwner{
-				ProjectName: projName,
+				ProjectName: projectName,
 			},
-			Type: v1alpha1.ComponentTypeService,
-			Build: v1alpha1.BuildSpecInComponent{
-				Repository: v1alpha1.BuildRepository{
-					URL:     req.Provisioning.Repository.Url,
-					AppPath: req.Provisioning.Repository.AppPath,
-					Revision: v1alpha1.BuildRevision{
-						Branch: req.Provisioning.Repository.Branch,
+			ComponentType: string(componentType),
+		},
+	}
+	return componentCR, nil
+}
+
+func createComponentCRForInternalAgents(orgName, projectName string, req *spec.CreateAgentRequest) (*v1alpha1.Component, error) {
+	annotations := map[string]string{
+		string(AnnotationKeyDisplayName): req.DisplayName,
+		string(AnnotationKeyDescription): utils.StrPointerAsStr(req.Description, ""),
+	}
+	labels := map[string]string{
+		string(LabelKeyProvisioningType): req.Provisioning.Type,
+		string(LabelKeyAgentSubType):     utils.StrPointerAsStr(req.AgentType.SubType, ""),
+		string(LabelKeyAgentLanguage):    req.RuntimeConfigs.Language,
+		string(LabelKeyAgentLanguageVersion): utils.StrPointerAsStr(req.RuntimeConfigs.LanguageVersion,""),
+	}
+	componentType := getOpenChoreoComponentType(req.Provisioning.Type, req.AgentType.Type)
+	componentWorkflow := getOpenChoreoComponentWorkflow(req.RuntimeConfigs.Language)
+	containerPort, basePath := getInputInterfaceConfig(req)
+
+	// Create parameters as RawExtension
+	parameters := map[string]interface{}{
+		"exposed":  true,
+		"replicas": DefaultReplicaCount,
+		"port":     containerPort,
+		"resources": map[string]interface{}{
+			"requests": map[string]string{
+				"cpu":    DefaultCPURequest,
+				"memory": DefaultMemoryRequest,
+			},
+			"limits": map[string]string{
+				"cpu":    DefaultCPULimit,
+				"memory": DefaultMemoryLimit,
+			},
+		},
+		"basePath": basePath,
+	}
+
+	var componentWorkflowParameters map[string]interface{}
+	if isGoogleBuildpack(req.RuntimeConfigs.Language) {
+		componentWorkflowParameters = getComponentWorkflowParametersForGoogleBuildPack(req)
+	} else {
+		componentWorkflowParameters = getComponentWorkflowParametersForBallerinaBuildPack(req)
+	}
+
+	parametersJSON, err := json.Marshal(parameters)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling component parameters: %w", err)
+	}
+	componentWorkflowParametersJSON, err := json.Marshal(componentWorkflowParameters)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling component workflow parameters: %w", err)
+	}
+
+	componentCR := &v1alpha1.Component{
+		TypeMeta: metav1.TypeMeta{
+			Kind:       "Component",
+			APIVersion: "openchoreo.dev/v1alpha1",
+		},
+		ObjectMeta: metav1.ObjectMeta{
+			Name:        req.Name,
+			Namespace:   orgName,
+			Annotations: annotations,
+			Labels:      labels,
+		},
+		Spec: v1alpha1.ComponentSpec{
+			Owner: v1alpha1.ComponentOwner{
+				ProjectName: projectName,
+			},
+			ComponentType: string(componentType),
+			Workflow: &v1alpha1.ComponentWorkflowRunConfig{
+				Name: string(componentWorkflow),
+				SystemParameters: v1alpha1.SystemParametersValues{
+					Repository: v1alpha1.RepositoryValues{
+						URL: req.Provisioning.Repository.Url,
+						Revision: v1alpha1.RepositoryRevisionValues{
+							Branch: req.Provisioning.Repository.Branch,
+						},
+						AppPath: req.Provisioning.Repository.AppPath,
 					},
 				},
-				TemplateRef: templateRef,
+				Parameters: &runtime.RawExtension{
+					Raw: componentWorkflowParametersJSON,
+				},
+			},
+			AutoDeploy: true,
+			Parameters: &runtime.RawExtension{
+				Raw: parametersJSON,
 			},
 		},
 	}
+	return componentCR, nil
 }
 
-func createBuildCR(orgName, projName, componentName, commitId string, component *v1alpha1.Component) *v1alpha1.Build {
-	buildUUID := uuid.New().String()
-	buildID := strings.ReplaceAll(buildUUID[:8], "-", "")
-	buildName := fmt.Sprintf("%s-build-%s", componentName, buildID)
+func createOTELInstrumentationTrait(ocAgentComponent *v1alpha1.Component, envUUID, projectUUID string) (*v1alpha1.ComponentTrait, error) {
+	traitParameters := map[string]interface{}{
+		"instrumentationImage":  getInstrumentationImage(ocAgentComponent.Labels[string(LabelKeyAgentLanguageVersion)]),
+		"sdkVolumeName":         config.GetConfig().OTEL.SDKVolumeName,
+		"sdkMountPath":          config.GetConfig().OTEL.SDKMountPath,
+		"agentName":             ocAgentComponent.Name,
+		"otelEndpoint":          config.GetConfig().OTEL.ExporterEndpoint,
+		"isTraceContentEnabled": utils.BoolAsString(config.GetConfig().OTEL.IsTraceContentEnabled),
+		"traceAttributes":       fmt.Sprintf("%s=%s,%s=%s,%s=%s", TraceAttributeKeyProject, projectUUID, TraceAttributeKeyEnvironment, envUUID, TraceAttributeKeyComponent, ocAgentComponent.UID),
+	}
+	traitParametersJSON, err := json.Marshal(traitParameters)
+	if err != nil {
+		return nil, fmt.Errorf("error marshalling OTEL instrumentation trait parameters: %w", err)
+	}
 
-	return &v1alpha1.Build{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      buildName,
-			Namespace: orgName,
-			Labels: map[string]string{
-				string(LabelKeyOrganizationName): orgName,
-				string(LabelKeyProjectName):      projName,
-				string(LabelKeyComponentName):    componentName,
-			},
+	return &v1alpha1.ComponentTrait{
+		Name:         string(TraitTypeOTELInstrumentation),
+		InstanceName: fmt.Sprintf("%s-%s", ocAgentComponent.Name, string(TraitTypeOTELInstrumentation)),
+		Parameters: &runtime.RawExtension{
+			Raw: traitParametersJSON,
 		},
-		Spec: v1alpha1.BuildSpec{
-			Owner: v1alpha1.BuildOwner{
+	}, nil
+}
+
+func getInstrumentationImage(languageVersion string) string {
+	// Extract major.minor version (e.g., "3.10.5" -> "3.10")
+	parts := strings.Split(languageVersion, ".")
+	if len(parts) >= 2 {
+		majorMinor := parts[0] + "." + parts[1]
+		switch majorMinor {
+		case "3.10":
+			return config.GetConfig().OTEL.OTELInstrumentationImage.Python310
+		case "3.11":
+			return config.GetConfig().OTEL.OTELInstrumentationImage.Python311
+		case "3.12":
+			return config.GetConfig().OTEL.OTELInstrumentationImage.Python312
+		case "3.13":
+			return config.GetConfig().OTEL.OTELInstrumentationImage.Python313
+		}
+	}
+	return ""
+}
+
+func createComponentWorkflowRunCR(orgName, projName, componentName string, systemParams v1alpha1.SystemParametersValues, component *v1alpha1.Component) *v1alpha1.ComponentWorkflowRun {
+	// Generate a unique workflow run name with short UUID
+	uuid := uuid.New().String()
+	workflowUuid := strings.ReplaceAll(uuid[:8], "-", "")
+	workflowRunName := fmt.Sprintf("%s-build-%s", component.Name, workflowUuid)
+
+	return &v1alpha1.ComponentWorkflowRun{
+		ObjectMeta: metav1.ObjectMeta{
+			Name:      workflowRunName,
+			Namespace: orgName,
+		},
+		Spec: v1alpha1.ComponentWorkflowRunSpec{
+			Owner: v1alpha1.ComponentWorkflowOwner{
 				ProjectName:   projName,
 				ComponentName: componentName,
 			},
-			Repository: v1alpha1.Repository{
-				URL: component.Spec.Build.Repository.URL,
-				Revision: v1alpha1.Revision{
-					Branch: component.Spec.Build.Repository.Revision.Branch,
-					Commit: commitId,
-				},
-				AppPath: component.Spec.Build.Repository.AppPath,
+			Workflow: v1alpha1.ComponentWorkflowRunConfig{
+				Name:             component.Spec.Workflow.Name,
+				SystemParameters: systemParams,
+				Parameters:       component.Spec.Workflow.Parameters,
 			},
-			TemplateRef: component.Spec.Build.TemplateRef,
-		},
-	}
-}
-
-func createWorkloadCR(orgName, projName, componentName string, envVars []spec.EnvironmentVariable, endpointDetails map[string]spec.EndpointSpec, imageId string, firstEnvironmentName string, language string) *v1alpha1.Workload {
-	var envs []v1alpha1.EnvVar
-	// Add initial system environment variables for python
-	if language == string(utils.LanguagePython) {
-		envs = append(envs,
-			v1alpha1.EnvVar{
-				Key:   EnvAMPComponentID,
-				Value: componentName,
-			},
-			v1alpha1.EnvVar{
-				Key:   EnvAMPAppName,
-				Value: componentName,
-			},
-			v1alpha1.EnvVar{
-				Key:   EnvAMPAppVersion,
-				Value: "1.0.0",
-			},
-			v1alpha1.EnvVar{
-				Key:   EnvAMPEnv,
-				Value: firstEnvironmentName,
-			},
-		)
-	}
-
-	workloadName := componentName + "-workload"
-	workloadSpec := v1alpha1.WorkloadSpec{
-		Owner: v1alpha1.WorkloadOwner{
-			ProjectName:   projName,
-			ComponentName: componentName,
-		},
-		WorkloadTemplateSpec: v1alpha1.WorkloadTemplateSpec{
-			Containers: map[string]v1alpha1.Container{
-				"main": {
-					Image: imageId,
-					Env: func() []v1alpha1.EnvVar {
-						for _, env := range envVars {
-							envs = append(envs, v1alpha1.EnvVar{
-								Key:   env.Key,
-								Value: env.Value,
-							})
-						}
-						return envs
-					}(),
-				},
-			},
-			Endpoints: func() map[string]v1alpha1.WorkloadEndpoint {
-				endpoints := make(map[string]v1alpha1.WorkloadEndpoint)
-				for name, endpointSpec := range endpointDetails {
-					endpoints[name] = v1alpha1.WorkloadEndpoint{
-						Type: v1alpha1.EndpointTypeHTTP,
-						Port: endpointSpec.Port,
-						Schema: &v1alpha1.Schema{
-							Type:    string(v1alpha1.EndpointTypeREST),
-							Content: endpointSpec.Schema.Content,
-						},
-					}
-				}
-				return endpoints
-			}(),
-		},
-	}
-
-	return &v1alpha1.Workload{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      workloadName,
-			Namespace: orgName,
-		},
-		Spec: workloadSpec,
-	}
-}
-
-func createServiceCR(orgName, projName, componentName string, workloadName string, serviceClassName string, apis map[string]*v1alpha1.ServiceAPI) *v1alpha1.Service {
-	serviceName := componentName + "-service"
-
-	return &v1alpha1.Service{
-		ObjectMeta: metav1.ObjectMeta{
-			Name:      serviceName,
-			Namespace: orgName,
-		},
-		Spec: v1alpha1.ServiceSpec{
-			Owner: v1alpha1.ServiceOwner{
-				ProjectName:   projName,
-				ComponentName: componentName,
-			},
-			WorkloadName: workloadName,
-			ClassName:    serviceClassName,
-			APIs:         apis,
 		},
 	}
 }
 
 func toComponentResponse(component *v1alpha1.Component) *AgentComponent {
-	return &AgentComponent{
+	response := &AgentComponent{
 		Name:        component.Name,
+		UUID:        string(component.UID),
 		DisplayName: component.Annotations[string(AnnotationKeyDisplayName)],
 		ProjectName: component.Spec.Owner.ProjectName,
-		Repository: Repository{
-			RepoURL: component.Spec.Build.Repository.URL,
-			Branch:  component.Spec.Build.Repository.Revision.Branch,
-			AppPath: component.Spec.Build.Repository.AppPath,
+		Provisioning: Provisioning{
+			Type: component.Labels[string(LabelKeyProvisioningType)],
 		},
-		BuildTemplateRef: component.Spec.Build.TemplateRef.Name,
-		CreatedAt:        component.CreationTimestamp.Time,
-		Status:           "", // Todo: set status
-		Description:      component.Annotations[string(AnnotationKeyDescription)],
+		Type: AgentType{
+			Type:    strings.Split(string(component.Spec.ComponentType), "/")[1], // e.g., deployment/agent-api -> agent-api
+			SubType: component.Labels[string(LabelKeyAgentSubType)],
+		},
+		Language:    component.Labels[string(LabelKeyAgentLanguage)],
+		CreatedAt:   component.CreationTimestamp.Time,
+		Status:      "", // Todo: set status
+		Description: component.Annotations[string(AnnotationKeyDescription)],
 	}
+
+	// Only populate repository info if workflow exists (internal agents)
+	if component.Spec.Workflow != nil {
+		response.Provisioning.Repository = Repository{
+			RepoURL: component.Spec.Workflow.SystemParameters.Repository.URL,
+			Branch:  component.Spec.Workflow.SystemParameters.Repository.Revision.Branch,
+			AppPath: component.Spec.Workflow.SystemParameters.Repository.AppPath,
+		}
+	}
+
+	return response
 }
 
-func updateWorkloadSpec(existingWorkload *v1alpha1.Workload, projName, componentName string, req *spec.DeployAgentRequest) {
+func updateWorkloadSpec(existingWorkload *v1alpha1.Workload, req *spec.DeployAgentRequest) {
+	var envs []v1alpha1.EnvVar
+
 	// Keep existing endpoints and just update container spec
 	existingWorkload.Spec.Containers = map[string]v1alpha1.Container{
 		"main": {
 			Image: req.ImageId,
 			Env: func() []v1alpha1.EnvVar {
-				var envVars []v1alpha1.EnvVar
 				for _, env := range req.Env {
-					envVars = append(envVars, v1alpha1.EnvVar{
+					envs = append(envs, v1alpha1.EnvVar{
 						Key:   env.Key,
 						Value: env.Value,
 					})
 				}
-				return envVars
+				return envs
 			}(),
 		},
 	}
 }
 
-func GetLatestBuildStatus(buildConditions []metav1.Condition) string {
-	if len(buildConditions) == 0 {
-		return statusUnknown
-	}
-
-	// Define the order of priority for build conditions (latest to earliest)
-	// WorkloadUpdated > BuildCompleted > BuildTriggered > BuildInitiated
-	conditionOrder := []string{
-		string(ConditionWorkloadUpdated),
-		string(ConditionBuildCompleted),
-		string(ConditionBuildTriggered),
-		string(ConditionBuildInitiated),
-	}
-
-	// Find the latest condition based on priority order
-	for _, conditionType := range conditionOrder {
-		for _, condition := range buildConditions {
-			if condition.Type == conditionType {
-				if condition.Type == string(ConditionWorkloadUpdated) && condition.Status == metav1.ConditionTrue {
-					return statusCompleted
-				}
-				return condition.Reason
-			}
+func findStatusCondition(conditions []metav1.Condition, conditionType string) *metav1.Condition {
+	for i := range conditions {
+		if conditions[i].Type == conditionType {
+			return &conditions[i]
 		}
 	}
 
-	return statusUnknown
+	return nil
 }
 
-// createEndpointDetails creates endpoint specifications based on the input interface type
-func createEndpointDetails(agentName string, inputInterface spec.InputInterface) (map[string]spec.EndpointSpec, error) {
-	endpointDetails := make(map[string]spec.EndpointSpec)
-
-	if inputInterface.Type == EndpointTypeCustom && inputInterface.CustomOpenAPISpec != nil {
-		// Assume a single endpoint
-		endpointName := fmt.Sprintf("%s-endpoint", agentName)
-		endpointDetails[endpointName] = spec.EndpointSpec{
-			Port:   inputInterface.CustomOpenAPISpec.Port,
-			Schema: inputInterface.CustomOpenAPISpec.Schema,
-		}
-	}
-
-	if inputInterface.Type == EndpointTypeDefault {
-		// Create a default endpoint with POST /invocations
-		endpointName := fmt.Sprintf("%s-endpoint", agentName)
-		defaultOpenAPISchema, err := getDefaultOpenAPISchema()
-		if err != nil {
-			return nil, err
-		}
-		endpointDetails[endpointName] = spec.EndpointSpec{
-			Port: int32(config.GetConfig().DefaultHTTPPort),
-			Schema: spec.EndpointSchema{
-				Content: utils.StrPointerAsStr(defaultOpenAPISchema, ""),
-			},
-		}
-	}
-
-	return endpointDetails, nil
+// IsStatusConditionTrue returns true when the conditionType is present and set to `metav1.ConditionTrue`
+func isStatusConditionTrue(conditions []metav1.Condition, conditionType string) bool {
+	return isStatusConditionPresentAndEqual(conditions, conditionType, metav1.ConditionTrue)
 }
 
-func toBuildDetailsResponse(build *v1alpha1.Build) (*models.BuildDetailsResponse, error) {
-	commitId := build.Spec.Repository.Revision.Commit
+// IsStatusConditionPresentAndEqual returns true when conditionType is present and equal to status.
+func isStatusConditionPresentAndEqual(conditions []metav1.Condition, conditionType string, status metav1.ConditionStatus) bool {
+	for _, condition := range conditions {
+		if condition.Type == conditionType {
+			return condition.Status == status
+		}
+	}
+	return false
+}
+
+func determineBuildStatus(conditions []metav1.Condition) BuildStatus {
+	if len(conditions) == 0 {
+		return BuildStatusInitiated // Just created
+	}
+
+	// Check terminal states first (priority order)
+	if isStatusConditionTrue(conditions, string(ConditionWorkloadUpdated)) {
+		return WorkloadUpdated // Fully done
+	}
+
+	if isStatusConditionTrue(conditions, string(ConditionWorkflowFailed)) {
+		return BuildStatusFailed
+	}
+
+	if isStatusConditionTrue(conditions, string(ConditionWorkflowSucceeded)) {
+		return BuildStatusSucceeded // Workflow succeeded
+	}
+
+	// Check active states
+	if isStatusConditionTrue(conditions, string(ConditionWorkflowRunning)) {
+		return BuildStatusRunning
+	}
+
+	// Check if workflow was triggered but not running yet
+	workflowCompletedCond := findStatusCondition(conditions, string(ConditionWorkflowCompleted))
+	if workflowCompletedCond != nil && workflowCompletedCond.Status == metav1.ConditionFalse {
+		if workflowCompletedCond.Reason == string(ConditionWorkflowPending) {
+			return BuildStatusTriggered // Argo Workflow created, not started
+		}
+	}
+
+	return BuildStatusInitiated // Has conditions but unclear state
+}
+
+func toBuildDetailsResponse(componentWorkflow *v1alpha1.ComponentWorkflowRun) (*models.BuildDetailsResponse, error) {
+	commitId := componentWorkflow.Spec.Workflow.SystemParameters.Repository.Revision.Commit
 	if commitId == "" {
 		commitId = "latest"
 	}
 
 	buildResp := &models.BuildDetailsResponse{
 		BuildResponse: models.BuildResponse{
-			UUID:        string(build.UID),
-			Name:        build.Name,
-			AgentName:   build.Spec.Owner.ComponentName,
-			ProjectName: build.Spec.Owner.ProjectName,
+			UUID:        string(componentWorkflow.UID),
+			Name:        componentWorkflow.Name,
+			AgentName:   componentWorkflow.Spec.Owner.ComponentName,
+			ProjectName: componentWorkflow.Spec.Owner.ProjectName,
 			CommitID:    commitId,
-			Status:      GetLatestBuildStatus(build.Status.Conditions),
-			StartedAt:   build.CreationTimestamp.Time,
-			Branch:      build.Spec.Repository.Revision.Branch,
-			Image:       build.Status.ImageStatus.Image,
+			Status:      string(determineBuildStatus(componentWorkflow.Status.Conditions)),
+			StartedAt:   componentWorkflow.CreationTimestamp.Time,
+			Branch:      componentWorkflow.Spec.Workflow.SystemParameters.Repository.Revision.Branch,
+			Image:       componentWorkflow.Status.ImageStatus.Image,
 		},
 	}
 
 	// Convert conditions to build steps
-	buildResp.Steps = extractBuildStepsFromConditions(build.Status.Conditions)
+	buildResp.Steps = MapConditionsToBuildSteps(componentWorkflow.Status.Conditions)
 
 	// Calculate build completion percentage
-	if percentage := calculateBuildPercentage(build.Status.Conditions); percentage != nil {
+	if percentage := calculateBuildPercentage(buildResp.Steps); percentage != nil {
 		buildResp.Percent = *percentage
 	}
 
 	// Set end time if build is completed
-	if endTime := findBuildEndTime(build.Status.Conditions); endTime != nil {
-		buildResp.EndedAt = endTime.Time
+	if endTime := findBuildEndTime(componentWorkflow.Status.Conditions); endTime != nil {
+		buildResp.EndedAt = &endTime.Time
 		// Calculate duration in seconds
-		duration := endTime.Sub(build.CreationTimestamp.Time).Seconds()
+		duration := endTime.Sub(componentWorkflow.CreationTimestamp.Time).Seconds()
 		buildResp.DurationSeconds = int32(duration)
 	}
 
 	return buildResp, nil
 }
 
-func toDeploymentDetailsResponse(sb *v1alpha1.ServiceBinding, environmentMap map[string]*models.EnvironmentResponse, promotionPaths []models.PromotionPath) *models.DeploymentResponse {
-	if sb == nil {
-		return nil
+func toDeploymentDetailsResponse(binding *v1alpha1.ReleaseBinding, envRelease *v1alpha1.Release, environmentMap map[string]*models.EnvironmentResponse, promotionTargetEnv *models.PromotionTargetEnvironment) (*models.DeploymentResponse, error) {
+	if binding == nil {
+		return nil, nil
 	}
 
-	// Extract deployment status from conditions
-	status := mapConditionToBindingStatus(sb.Status.Conditions)
+	// Extract deployment status from Release Binding
+	status := determineReleaseBindingStatus(binding)
 
 	// Extract last deployed time from conditions
 	var lastDeployedTime time.Time
-	if len(sb.Status.Conditions) > 0 {
-		lastDeployedTime = sb.Status.Conditions[0].LastTransitionTime.Time
+	if len(binding.Status.Conditions) > 0 {
+		lastDeployedTime = binding.Status.Conditions[0].LastTransitionTime.Time
 	}
 
-	// Extract endpoints from ServiceBinding status
-	endpoints := extractEndpointsFromServiceBinding(sb)
+	// Extract endpoints from EnvRelease status
+	endpoints, err := extractEndpointURLFromEnvRelease(envRelease)
+	if err != nil {
+		return nil, fmt.Errorf("error extracting endpoints: %w", err)
+	}
+	// Extract deployed image from EnvRelease status
+	deployedImage := findDeployedImageFromEnvRelease(envRelease)
 
-	environment := sb.Spec.Environment
+	environment := binding.Spec.Environment
 	// Get environment display name
 	var environmentDisplayName string
 	if env, exists := environmentMap[environment]; exists {
 		environmentDisplayName = env.DisplayName
 	}
 
-	// Find promotion target environment for this environment (linear promotion)
-	promotionTargetEnv := findPromotionTargetEnvironment(environment, promotionPaths, environmentMap)
-
-	var imageId string
-	if sb.Spec.WorkloadSpec.Containers != nil {
-		if mainContainer, exists := sb.Spec.WorkloadSpec.Containers["main"]; exists {
-			imageId = mainContainer.Image
-		}
-	}
-
 	return &models.DeploymentResponse{
-		ImageId:                    imageId,
+		ImageId:                    deployedImage,
 		Status:                     status,
 		Environment:                environment,
 		EnvironmentDisplayName:     environmentDisplayName,
 		PromotionTargetEnvironment: promotionTargetEnv,
 		LastDeployedAt:             lastDeployedTime,
 		Endpoints:                  endpoints,
-	}
+	}, nil
 }
 
-func mapConditionToBindingStatus(conditions []metav1.Condition) string {
-	for _, condition := range conditions {
-		if condition.Type == "Ready" {
-			if condition.Status == metav1.ConditionTrue {
-				return DeploymentStatusActive
-			}
-			switch condition.Reason {
-			case "ResourcesSuspended", "ResourcesUndeployed":
-				return DeploymentStatusSuspended
-			case "ResourceHealthProgressing":
-				return DeploymentStatusInProgress
-			case "ResourceHealthDegraded", "ServiceClassNotFound", "APIClassNotFound":
-				return DeploymentStatusFailed
-			default:
-				return DeploymentStatusNotDeployed
-			}
+func determineReleaseBindingStatus(binding *v1alpha1.ReleaseBinding) string {
+	if len(binding.Status.Conditions) == 0 {
+		return DeploymentStatusNotDeployed
+	}
+
+	generation := binding.ObjectMeta.Generation
+
+	// Collect all conditions for the current generation
+	var conditionsForGeneration []metav1.Condition
+	for i := range binding.Status.Conditions {
+		if binding.Status.Conditions[i].ObservedGeneration == generation {
+			conditionsForGeneration = append(conditionsForGeneration, binding.Status.Conditions[i])
 		}
 	}
-	return DeploymentStatusNotDeployed
+
+	// Expected conditions: ReleaseSynced, ResourcesReady, Ready
+	// If there are less than 3 conditions for the current generation, it's still in progress
+	if len(conditionsForGeneration) < 3 {
+		return DeploymentStatusInProgress
+	}
+
+	// Check if any condition has Status == False with ResourcesDegraded reason
+	for i := range conditionsForGeneration {
+		if conditionsForGeneration[i].Status == metav1.ConditionFalse && conditionsForGeneration[i].Reason == "ResourcesDegraded" {
+			return DeploymentStatusFailed
+		}
+	}
+
+	// Check if any condition has Status == False with ResourcesProgressing reason
+	for i := range conditionsForGeneration {
+		if conditionsForGeneration[i].Status == metav1.ConditionFalse && conditionsForGeneration[i].Reason == "ResourcesProgressing" {
+			return DeploymentStatusInProgress
+		}
+	}
+
+	// If all three conditions are present and none are degraded, it's ready
+	return DeploymentStatusActive
 }
 
-// extractEndpointsFromServiceBinding converts ServiceBinding endpoints to model endpoints
-func extractEndpointsFromServiceBinding(sb *v1alpha1.ServiceBinding) []models.Endpoint {
+// extractEndpointsFromEnvReleaseBinding converts EnvRelease endpoints to model endpoints
+func extractEndpointURLFromEnvRelease(envRelease *v1alpha1.Release) ([]models.Endpoint, error) {
 	var endpoints []models.Endpoint
-	if sb == nil || sb.Status.Endpoints == nil {
-		return endpoints
+
+	if envRelease == nil || envRelease.Spec.Resources == nil {
+		return endpoints, nil
 	}
 
-	for _, endpoint := range sb.Status.Endpoints {
-		if endpoint.Public != nil {
-			var endpointURL string
-			var endpointVisibility string
-			if endpoint.Public.URI != "" {
-				endpointURL = endpoint.Public.URI
-				endpointVisibility = "Public"
-			}
-			endpoints = append(endpoints, models.Endpoint{
-				Name:       endpoint.Name,
-				URL:        endpointURL,
-				Visibility: endpointVisibility,
-			})
+	// Check spec.resources for HTTPRoute definitions
+	specResources := envRelease.Spec.Resources
+
+	// Find all HTTPRoute objects in spec resources
+	for i := range specResources {
+		rawResource := specResources[i].Object.Raw
+		if len(rawResource) == 0 {
+			continue
 		}
+
+		var obj unstructured.Unstructured
+		if err := json.Unmarshal(rawResource, &obj); err != nil {
+			return nil, fmt.Errorf("error unmarshalling resource: %w", err)
+		}
+
+		// Check if this is an HTTPRoute
+		if obj.GetKind() != "HTTPRoute" {
+			continue
+		}
+
+		// Get hostname
+		hostnames, found, err := unstructured.NestedStringSlice(obj.Object, "spec", "hostnames")
+		if err != nil {
+			return nil, fmt.Errorf("error extracting hostnames from HTTPRoute: %w", err)
+		}
+		if !found || len(hostnames) == 0 {
+			return nil, fmt.Errorf("HTTPRoute missing hostnames")
+		}
+		hostname := hostnames[0]
+		pathValue, err := extractPathValue(obj)
+		if err != nil {
+			return nil, fmt.Errorf("error extracting path from HTTPRoute: %w", err)
+		}
+		// Construct the invoke URL
+		port := config.GetConfig().DefaultGatewayPort
+		url := fmt.Sprintf("http://%s:%d", hostname, port)
+		if pathValue != "" {
+			url = fmt.Sprintf("http://%s:%d%s", hostname, port, pathValue)
+		}
+
+		endpoints = append(endpoints, models.Endpoint{
+			URL:        url,
+			Visibility: "Public",
+		})
+
 	}
 
-	return endpoints
+	return endpoints, nil
 }
 
-// extractBuildStepsFromConditions converts Kubernetes conditions to BuildStep models
-func extractBuildStepsFromConditions(conditions []metav1.Condition) []models.BuildStep {
-	var steps []models.BuildStep
-
-	// Define the expected order of build conditions
-	expectedTypes := []string{
-		string(ConditionBuildInitiated),
-		string(ConditionBuildTriggered),
-		string(ConditionBuildCompleted),
-		string(ConditionWorkloadUpdated),
+func extractPathValue(obj unstructured.Unstructured) (string, error) {
+	// Get path from rules[0].matches[0].path.value
+	rules, found, err := unstructured.NestedSlice(obj.Object, "spec", "rules")
+	if err != nil || !found || len(rules) == 0 {
+		return "", fmt.Errorf("HTTPRoute missing rules")
 	}
 
-	// Convert each condition to a BuildStep
-	for _, expectedType := range expectedTypes {
-		for _, condition := range conditions {
-			if condition.Type == expectedType {
-				steps = append(steps, models.BuildStep{
-					Type:    condition.Type,
-					Status:  string(condition.Status),
-					Message: condition.Message,
-					At:      condition.LastTransitionTime.Time,
-				})
-				break
+	rule0, ok := rules[0].(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("invalid rule format in HTTPRoute")
+	}
+
+	matches, found, err := unstructured.NestedSlice(rule0, "matches")
+	if err != nil || !found || len(matches) == 0 {
+		return "", fmt.Errorf("HTTPRoute missing matches")
+	}
+
+	match0, ok := matches[0].(map[string]any)
+	if !ok {
+		return "", fmt.Errorf("invalid match format in HTTPRoute")
+	}
+	pathValue, found, err := unstructured.NestedString(match0, "path", "value")
+	if err != nil || !found {
+		return "", fmt.Errorf("HTTPRoute missing path value")
+	}
+	return pathValue, nil
+}
+
+// findDeployedImageFromEnvRelease extracts the deployed image from the Deployment resource in the Release
+func findDeployedImageFromEnvRelease(envRelease *v1alpha1.Release) string {
+	if envRelease == nil || envRelease.Spec.Resources == nil {
+		return ""
+	}
+
+	// Iterate through resources to find the Deployment
+	for i := range envRelease.Spec.Resources {
+		rawResource := envRelease.Spec.Resources[i].Object.Raw
+		if len(rawResource) == 0 {
+			continue
+		}
+
+		// Unmarshal the RawExtension to extract the object
+		var obj unstructured.Unstructured
+		if err := json.Unmarshal(rawResource, &obj); err != nil {
+			continue
+		}
+
+		// Check if this is a Deployment
+		if obj.GetKind() != "Deployment" {
+			continue
+		}
+
+		// Extract image from spec.template.spec.containers[].image
+		containers, found, err := unstructured.NestedSlice(obj.Object, "spec", "template", "spec", "containers")
+		if err != nil || !found {
+			continue
+		}
+
+		for _, container := range containers {
+			containerMap, ok := container.(map[string]interface{})
+			if !ok {
+				continue
 			}
+			// Look for the "main" container
+			if name, ok := containerMap["name"].(string); ok && name == "main" {
+				if image, ok := containerMap["image"].(string); ok {
+					return image
+				}
+			}
+		}
+
+	}
+
+	return ""
+}
+
+func MapConditionsToBuildSteps(conditions []metav1.Condition) []models.BuildStep {
+	steps := []models.BuildStep{
+		{Type: string(BuildStatusInitiated), Status: string(BuildStepStatusPending)},
+		{Type: string(BuildStatusTriggered), Status: string(BuildStepStatusPending)},
+		{Type: string(BuildStatusRunning), Status: string(BuildStepStatusPending)},
+		{Type: string(BuildStatusCompleted), Status: string(BuildStepStatusPending)},
+		{Type: string(WorkloadUpdated), Status: string(BuildStepStatusPending)},
+	}
+
+	// Helper to find condition
+	findCondition := func(condType string) *metav1.Condition {
+		for i := range conditions {
+			if conditions[i].Type == condType {
+				return &conditions[i]
+			}
+		}
+		return nil
+	}
+
+	workflowCompleted := findCondition(string(ConditionWorkflowCompleted))
+	workflowRunning := findCondition(string(ConditionWorkflowRunning))
+	workflowSucceeded := findCondition(string(ConditionWorkflowSucceeded))
+	workflowFailed := findCondition(string(ConditionWorkflowFailed))
+	workloadUpdated := findCondition(string(ConditionWorkloadUpdated))
+
+	// Step 1: BuildInitiated (always succeeded if ComponentWorkflowRun exists)
+	steps[StepIndexInitiated].Status = string(BuildStepStatusSucceeded)
+	steps[StepIndexInitiated].Message = "Build initiated"
+
+	// Step 2: BuildTriggered (workflow created)
+	if workflowCompleted != nil || workflowRunning != nil {
+		steps[StepIndexTriggered].Status = string(BuildStepStatusSucceeded)
+		steps[StepIndexTriggered].Message = "Build triggered"
+		if workflowCompleted != nil {
+			steps[StepIndexTriggered].StartedAt = &workflowCompleted.LastTransitionTime.Time
+			steps[StepIndexTriggered].FinishedAt = &workflowCompleted.LastTransitionTime.Time
 		}
 	}
 
+	// Step 3: BuildRunning
+	if workflowRunning != nil && workflowRunning.Status == metav1.ConditionTrue {
+		steps[StepIndexRunning].Status = string(BuildStepStatusRunning)
+		steps[StepIndexRunning].Message = "Build running"
+		steps[StepIndexRunning].StartedAt = &workflowRunning.LastTransitionTime.Time
+	} else if workflowCompleted != nil && workflowCompleted.Status == metav1.ConditionTrue {
+		steps[StepIndexRunning].Status = string(BuildStepStatusSucceeded)
+		steps[StepIndexRunning].Message = "Build execution finished"
+		if workflowRunning != nil {
+			steps[StepIndexRunning].StartedAt = &workflowRunning.LastTransitionTime.Time
+		}
+		steps[StepIndexRunning].FinishedAt = &workflowCompleted.LastTransitionTime.Time
+	}
+
+	// Step 4: BuildCompleted (succeeded or failed)
+	if workflowFailed != nil && workflowFailed.Status == metav1.ConditionTrue {
+		steps[StepIndexCompleted].Status = string(BuildStepStatusFailed)
+		steps[StepIndexCompleted].Message = workflowFailed.Message
+		steps[StepIndexCompleted].StartedAt = &workflowFailed.LastTransitionTime.Time
+		steps[StepIndexCompleted].FinishedAt = &workflowFailed.LastTransitionTime.Time
+	} else if workflowSucceeded != nil && workflowSucceeded.Status == metav1.ConditionTrue {
+		steps[StepIndexCompleted].Status = string(BuildStepStatusSucceeded)
+		steps[StepIndexCompleted].Message = "Build completed successfully"
+		steps[StepIndexCompleted].StartedAt = &workflowSucceeded.LastTransitionTime.Time
+		steps[StepIndexCompleted].FinishedAt = &workflowSucceeded.LastTransitionTime.Time
+	}
+
+	// Step 5: WorkloadUpdated (final deployment step)
+	if workloadUpdated != nil && workloadUpdated.Status == metav1.ConditionTrue {
+		steps[StepIndexWorkloadUpdated].Status = string(BuildStepStatusSucceeded)
+		steps[StepIndexWorkloadUpdated].Message = "Workload updated successfully"
+		steps[StepIndexWorkloadUpdated].StartedAt = &workloadUpdated.LastTransitionTime.Time
+		steps[StepIndexWorkloadUpdated].FinishedAt = &workloadUpdated.LastTransitionTime.Time
+	} else if workflowSucceeded != nil && workflowSucceeded.Status == metav1.ConditionTrue {
+		steps[StepIndexWorkloadUpdated].Status = string(BuildStepStatusRunning)
+		steps[StepIndexWorkloadUpdated].Message = "Updating workload"
+	} else if workflowFailed != nil && workflowFailed.Status == metav1.ConditionTrue {
+		steps[StepIndexWorkloadUpdated].Status = string(BuildStepStatusPending)
+		steps[StepIndexWorkloadUpdated].Message = "Workload update skipped"
+	}
 	return steps
 }
 
-// calculateBuildPercentage determines completion percentage based on build conditions
-// Each step has specific percentage values: BuildInitiated=10%, BuildTriggered=40%, BuildCompleted=80%, WorkloadUpdated=100%
-func calculateBuildPercentage(conditions []metav1.Condition) *float32 {
+// calculateBuildPercentage determines completion percentage based on build steps
+// Each step has specific percentage values: BuildInitiated=10%, BuildTriggered=30%, BuildRunning=50%, BuildCompleted=80%, BuildSucceeded=100%
+func calculateBuildPercentage(steps []models.BuildStep) *float32 {
 	percentage := float32(0)
+	totalSteps := float32(len(steps))
 
-	// Check each condition and assign specific percentage values
-	for _, condition := range conditions {
-		if condition.Status == metav1.ConditionTrue {
-			switch condition.Type {
-			case string(ConditionBuildInitiated):
-				if percentage < 10 {
-					percentage = 10
-				}
-			case string(ConditionBuildTriggered):
-				if percentage < 40 {
-					percentage = 40
-				}
-			case string(ConditionBuildCompleted):
-				if percentage < 80 {
-					percentage = 80
-				}
-			case string(ConditionWorkloadUpdated):
-				if percentage < 100 {
-					percentage = 100
-				}
-			}
+	if totalSteps == 0 {
+		return &percentage
+	}
+
+	completedSteps := float32(0)
+
+	for _, step := range steps {
+		if step.Status == string(BuildStepStatusSucceeded) {
+			completedSteps++
+		} else if step.Status == string(BuildStepStatusRunning) {
+			// Running step counts as 0.5 completed
+			completedSteps += 0.5
+			break // Don't count subsequent steps
+		} else if step.Status == string(BuildStepStatusFailed) {
+			// If failed, stop counting and return current percentage
+			break
+		} else {
+			// Pending steps, stop counting
+			break
 		}
 	}
 
+	percentage = (completedSteps / totalSteps) * 100
 	return &percentage
 }
 
-// findBuildEndTime finds the build end time based on conditions:
-// - If any stage failed (Status = False), use that stage's LastTransitionTime as end time
-// - If no failures, use WorkloadUpdated stage's LastTransitionTime as end time
 func findBuildEndTime(conditions []metav1.Condition) *metav1.Time {
 	var workloadUpdatedTime *metav1.Time
 
-	// First, check for any failed conditions (Status = False)
 	for _, condition := range conditions {
 		switch condition.Type {
-		case string(ConditionBuildInitiated), string(ConditionBuildTriggered), string(ConditionBuildCompleted), string(ConditionWorkloadUpdated):
-			if condition.Status == metav1.ConditionFalse {
-				// If any stage failed, return its timestamp immediately
+		case string(ConditionWorkflowFailed):
+			// If workflow failed, return its timestamp
+			if condition.Status == metav1.ConditionTrue {
 				return &condition.LastTransitionTime
 			}
-			// Store WorkloadUpdated timestamp for potential use if no failures
-			if condition.Type == string(ConditionWorkloadUpdated) {
+		case string(ConditionWorkloadUpdated):
+			// If workload was updated (completed), store this timestamp
+			if condition.Status == metav1.ConditionTrue {
+				workloadUpdatedTime = &condition.LastTransitionTime
+			}
+		case string(ConditionWorkflowSucceeded):
+			// If workflow succeeded but workload not yet updated, store this timestamp
+			if condition.Status == metav1.ConditionTrue && workloadUpdatedTime == nil {
 				workloadUpdatedTime = &condition.LastTransitionTime
 			}
 		}
@@ -587,4 +818,44 @@ func buildEnvironmentOrder(promotionPaths []models.PromotionPath) []string {
 	}
 
 	return environmentOrder
+}
+
+// buildPromotionPaths converts v1alpha1 PromotionPaths to models.PromotionPath
+func buildPromotionPaths(promoPaths []v1alpha1.PromotionPath) []models.PromotionPath {
+	promotionPaths := make([]models.PromotionPath, 0, len(promoPaths))
+	for _, path := range promoPaths {
+		targetRefs := make([]models.TargetEnvironmentRef, 0, len(path.TargetEnvironmentRefs))
+		for _, target := range path.TargetEnvironmentRefs {
+			targetRefs = append(targetRefs, models.TargetEnvironmentRef{
+				Name: target.Name,
+			})
+		}
+		promotionPaths = append(promotionPaths, models.PromotionPath{
+			SourceEnvironmentRef:  path.SourceEnvironmentRef,
+			TargetEnvironmentRefs: targetRefs,
+		})
+	}
+	return promotionPaths
+}
+
+func findLowestEnvironment(promotionPaths []models.PromotionPath) string {
+	if len(promotionPaths) == 0 {
+		return ""
+	}
+
+	// Collect all target environments
+	targets := make(map[string]bool)
+	for _, path := range promotionPaths {
+		for _, target := range path.TargetEnvironmentRefs {
+			targets[target.Name] = true
+		}
+	}
+
+	// Find a source environment that is not a target
+	for _, path := range promotionPaths {
+		if !targets[path.SourceEnvironmentRef] {
+			return path.SourceEnvironmentRef
+		}
+	}
+	return ""
 }

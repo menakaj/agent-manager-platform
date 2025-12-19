@@ -1,13 +1,18 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package handlers
 
@@ -18,8 +23,8 @@ import (
 	"strconv"
 	"time"
 
-	"github.com/wso2-enterprise/agent-management-platform/traces-observer-service/controllers"
-	"github.com/wso2-enterprise/agent-management-platform/traces-observer-service/opensearch"
+	"github.com/wso2/ai-agent-management-platform/traces-observer-service/controllers"
+	"github.com/wso2/ai-agent-management-platform/traces-observer-service/opensearch"
 )
 
 // Handler handles HTTP requests for tracing
@@ -36,19 +41,21 @@ func NewHandler(controllers *controllers.TracingController) *Handler {
 
 // TraceRequest represents the request body for getting traces
 type TraceRequest struct {
-	ServiceName string `json:"serviceName"`
-	StartTime   string `json:"startTime"`
-	EndTime     string `json:"endTime"`
-	Limit       int    `json:"limit,omitempty"`
-	SortOrder   string `json:"sortOrder,omitempty"`
+	ComponentUid   string `json:"componentUid"`
+	EnvironmentUid string `json:"environmentUid"`
+	StartTime      string `json:"startTime"`
+	EndTime        string `json:"endTime"`
+	Limit          int    `json:"limit,omitempty"`
+	SortOrder      string `json:"sortOrder,omitempty"`
 }
 
-// TraceByIdAndServiceRequest represents the request body for getting traces by ID and service
+// TraceByIdAndServiceRequest represents the request body for getting traces by ID and component
 type TraceByIdAndServiceRequest struct {
-	TraceID     string `json:"traceId"`
-	ServiceName string `json:"serviceName"`
-	SortOrder   string `json:"sortOrder,omitempty"`
-	Limit       int    `json:"limit,omitempty"`
+	TraceID        string `json:"traceId"`
+	ComponentUid   string `json:"componentUid"`
+	EnvironmentUid string `json:"environmentUid"`
+	SortOrder      string `json:"sortOrder,omitempty"`
+	Limit          int    `json:"limit,omitempty"`
 }
 
 // ErrorResponse represents an error response
@@ -62,9 +69,15 @@ func (h *Handler) GetTraceOverviews(w http.ResponseWriter, r *http.Request) {
 	// Parse query parameters
 	query := r.URL.Query()
 
-	serviceName := query.Get("serviceName")
-	if serviceName == "" {
-		h.writeError(w, http.StatusBadRequest, "serviceName is required")
+	componentUid := query.Get("componentUid")
+	if componentUid == "" {
+		h.writeError(w, http.StatusBadRequest, "componentUid is required")
+		return
+	}
+
+	environmentUid := query.Get("environmentUid")
+	if environmentUid == "" {
+		h.writeError(w, http.StatusBadRequest, "environmentUid is required")
 		return
 	}
 
@@ -105,12 +118,13 @@ func (h *Handler) GetTraceOverviews(w http.ResponseWriter, r *http.Request) {
 
 	// Build query parameters
 	params := opensearch.TraceQueryParams{
-		ServiceName: serviceName,
-		StartTime:   startTime,
-		EndTime:     endTime,
-		Limit:       limit,
-		Offset:      offset,
-		SortOrder:   sortOrder,
+		ComponentUid:   componentUid,
+		EnvironmentUid: environmentUid,
+		StartTime:      startTime,
+		EndTime:        endTime,
+		Limit:          limit,
+		Offset:         offset,
+		SortOrder:      sortOrder,
 	}
 
 	// Execute query
@@ -137,9 +151,15 @@ func (h *Handler) GetTraceByIdAndService(w http.ResponseWriter, r *http.Request)
 		return
 	}
 
-	serviceName := query.Get("serviceName")
-	if serviceName == "" {
-		h.writeError(w, http.StatusBadRequest, "serviceName is required")
+	componentUid := query.Get("componentUid")
+	if componentUid == "" {
+		h.writeError(w, http.StatusBadRequest, "componentUid is required")
+		return
+	}
+
+	environmentUid := query.Get("environmentUid")
+	if environmentUid == "" {
+		h.writeError(w, http.StatusBadRequest, "environmentUid is required")
 		return
 	}
 
@@ -166,10 +186,11 @@ func (h *Handler) GetTraceByIdAndService(w http.ResponseWriter, r *http.Request)
 
 	// Build query parameters
 	params := opensearch.TraceByIdAndServiceParams{
-		TraceID:     traceID,
-		ServiceName: serviceName,
-		SortOrder:   sortOrder,
-		Limit:       limit,
+		TraceID:        traceID,
+		ComponentUid:   componentUid,
+		EnvironmentUid: environmentUid,
+		SortOrder:      sortOrder,
+		Limit:          limit,
 	}
 
 	// Execute query
@@ -189,9 +210,10 @@ func (h *Handler) GetTraceByIdAndService(w http.ResponseWriter, r *http.Request)
 func (h *Handler) Health(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	if err := h.controllers.HealthCheck(ctx); err != nil {
+		log.Printf("Health check failed: %v", err)
 		h.writeJSON(w, http.StatusServiceUnavailable, map[string]string{
 			"status": "unhealthy",
-			"error":  err.Error(),
+			"error":  "service unavailable",
 		})
 		return
 	}

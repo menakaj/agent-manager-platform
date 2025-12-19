@@ -1,19 +1,24 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package utils
 
 import (
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/models"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/spec"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/models"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/spec"
 )
 
 func ConvertToAgentListResponse(components []*models.AgentResponse) []spec.AgentResponse {
@@ -22,17 +27,7 @@ func ConvertToAgentListResponse(components []*models.AgentResponse) []spec.Agent
 	}
 	responses := make([]spec.AgentResponse, len(components))
 	for i, component := range components {
-		responses[i] = spec.AgentResponse{
-			Name:        component.Name,
-			DisplayName: component.DisplayName,
-			Description: component.Description,
-			ProjectName: component.ProjectName,
-			CreatedAt:   component.CreatedAt,
-			Status:      &component.Status,
-			Provisioning: spec.Provisioning{
-				Type: component.Provisioning.Type,
-			},
-		}
+		responses[i] = ConvertToAgentResponse(component)
 	}
 	return responses
 }
@@ -41,25 +36,55 @@ func ConvertToAgentResponse(component *models.AgentResponse) spec.AgentResponse 
 	if component == nil {
 		return spec.AgentResponse{}
 	}
-	provisioning := spec.Provisioning{
-		Type: component.Provisioning.Type,
-	}
 
 	if component.Provisioning.Type == string(InternalAgent) {
-		provisioning.Repository = &spec.RepositoryConfig{
-			Url:     component.Provisioning.Repository.Url,
-			Branch:  component.Provisioning.Repository.Branch,
-			AppPath: component.Provisioning.Repository.AppPath,
-		}
+		return convertToInternalAgentResponse(component)
 	}
+	return convertToExternalAgentResponse(component)
+}
+
+func convertToInternalAgentResponse(component *models.AgentResponse) spec.AgentResponse {
 	return spec.AgentResponse{
-		Name:         component.Name,
-		DisplayName:  component.DisplayName,
-		Description:  component.Description,
-		ProjectName:  component.ProjectName,
-		CreatedAt:    component.CreatedAt,
-		Status:       &component.Status,
-		Provisioning: provisioning,
+		Uuid: component.UUID,
+		Name:        component.Name,
+		DisplayName: component.DisplayName,
+		Description: component.Description,
+		ProjectName: component.ProjectName,
+		CreatedAt:   component.CreatedAt,
+		Status:      &component.Status,
+		Provisioning: spec.Provisioning{
+			Type: component.Provisioning.Type,
+			Repository: &spec.RepositoryConfig{
+				Url:     component.Provisioning.Repository.Url,
+				Branch:  component.Provisioning.Repository.Branch,
+				AppPath: component.Provisioning.Repository.AppPath,
+			},
+		},
+		RuntimeConfigs: &spec.RuntimeConfiguration{
+			Language: component.Language,
+		},
+		AgentType: spec.AgentType{
+			Type:    component.Type.Type,
+			SubType: &component.Type.SubType,
+		},
+	}
+}
+
+func convertToExternalAgentResponse(component *models.AgentResponse) spec.AgentResponse {
+	return spec.AgentResponse{
+		Uuid:  component.UUID,
+		Name:        component.Name,
+		DisplayName: component.DisplayName,
+		Description: component.Description,
+		ProjectName: component.ProjectName,
+		CreatedAt:   component.CreatedAt,
+		Status:      &component.Status,
+		Provisioning: spec.Provisioning{
+			Type: component.Provisioning.Type,
+		},
+		AgentType: spec.AgentType{
+			Type: component.Type.Type,
+		},
 	}
 }
 
@@ -77,7 +102,7 @@ func ConvertToBuildResponse(build *models.BuildResponse) spec.BuildResponse {
 		ImageId:     &build.Image,
 		BuildName:   build.Name,
 		Branch:      build.Branch,
-		EndedAt:     &build.EndedAt,
+		EndedAt:     build.EndedAt,
 	}
 }
 
@@ -100,10 +125,11 @@ func ConvertToBuildDetailsResponse(buildDetails *models.BuildDetailsResponse) sp
 	steps := make([]spec.BuildStep, len(buildDetails.Steps))
 	for i, step := range buildDetails.Steps {
 		steps[i] = spec.BuildStep{
-			Type:    step.Type,
-			Status:  step.Status,
-			Message: step.Message,
-			At:      step.At,
+			Type:       step.Type,
+			Status:     step.Status,
+			Message:    step.Message,
+			StartedAt:  step.StartedAt,
+			FinishedAt: step.FinishedAt,
 		}
 	}
 	return spec.BuildDetailsResponse{
@@ -119,7 +145,7 @@ func ConvertToBuildDetailsResponse(buildDetails *models.BuildDetailsResponse) sp
 		Percent:         &buildDetails.Percent,
 		Steps:           steps,
 		DurationSeconds: &buildDetails.DurationSeconds,
-		EndedAt:         &buildDetails.EndedAt,
+		EndedAt:         buildDetails.EndedAt,
 	}
 }
 
@@ -136,8 +162,8 @@ func ConvertToDeploymentDetailsResponse(deploymentDetails []*models.DeploymentRe
 		for i, endpoint := range deployment.Endpoints {
 			endpoints[i] = spec.DeploymentEndpoint{
 				Name:       endpoint.Name,
-				Url:        endpoint.URL,
 				Visibility: endpoint.Visibility,
+				Url:        endpoint.URL,
 			}
 		}
 
@@ -153,21 +179,6 @@ func ConvertToDeploymentDetailsResponse(deploymentDetails []*models.DeploymentRe
 			LastDeployed:           deployment.LastDeployedAt,
 			Endpoints:              endpoints,
 			EnvironmentDisplayName: envDisplayName,
-		}
-
-		// Set source environment based on current deployment environment
-		sourceEnv := spec.EnvironmentObject{
-			Name:        deployment.Environment,
-			DisplayName: deployment.EnvironmentDisplayName,
-		}
-		deploymentResponse.SourceEnvironment = sourceEnv
-
-		// Set promotion target environment (empty object if nil)
-		if deployment.PromotionTargetEnvironment != nil {
-			deploymentResponse.PromotionTargetEnvironment = &spec.DeploymentDetailsResponsePromotionTargetEnvironment{
-				Name:        deployment.PromotionTargetEnvironment.Name,
-				DisplayName: deployment.PromotionTargetEnvironment.DisplayName,
-			}
 		}
 
 		// Add to result map with environment name as key
@@ -186,35 +197,86 @@ func ConvertToAgentEndpointResponse(endpointDetails map[string]models.EndpointsR
 	for endpointName, details := range endpointDetails {
 		result[endpointName] = spec.EndpointConfiguration{
 			Url:          details.URL,
-			EndpointName: details.Name,
+			EndpointName: endpointName,
+			Visibility:   details.Visibility,
 			Schema: spec.EndpointSchema{
 				Content: details.Schema.Content,
 			},
-			Visibility: details.Visibility,
 		}
 	}
 
 	return result
 }
 
-func ConvertToEnvironmentResponse(environments []*models.EnvironmentResponse) []spec.Environment {
+func ConvertToEnvironmentListResponse(environments []*models.EnvironmentResponse) []spec.Environment {
 	if len(environments) == 0 {
 		return []spec.Environment{}
 	}
 
 	responses := make([]spec.Environment, len(environments))
 	for i, env := range environments {
-		responses[i] = spec.Environment{
-			Name:         env.Name,
-			Namespace:    env.Namespace,
-			IsProduction: env.IsProduction,
-			CreatedAt:    env.CreatedAt,
-			DisplayName:  &env.DisplayName,
-			DnsPrefix:    &env.DNSPrefix,
-		}
+		responses[i] = ConvertToEnvironmentResponse(env)
 	}
 
 	return responses
+}
+
+func ConvertToEnvironmentResponse(env *models.EnvironmentResponse) spec.Environment {
+	if env == nil {
+		return spec.Environment{}
+	}
+
+	return spec.Environment{
+		Name:         env.Name,
+		DataplaneRef: env.DataplaneRef,
+		IsProduction: env.IsProduction,
+		CreatedAt:    env.CreatedAt,
+		DisplayName:  &env.DisplayName,
+		DnsPrefix:    &env.DNSPrefix,
+	}
+}
+
+func ConvertToDeploymentPipelinesListResponse(pipelines []*models.DeploymentPipelineResponse, total int32, limit int32, offset int32) spec.DeploymentPipelineListResponse {
+	responses := make([]spec.DeploymentPipelineResponse, len(pipelines))
+	for i, pipeline := range pipelines {
+		responses[i] = ConvertToDeploymentPipelineResponse(pipeline)
+	}
+
+	return spec.DeploymentPipelineListResponse{
+		DeploymentPipelines: responses,
+		Total:               total,
+		Limit:               limit,
+		Offset:              offset,
+	}
+}
+
+func ConvertToDeploymentPipelineResponse(pipeline *models.DeploymentPipelineResponse) spec.DeploymentPipelineResponse {
+	if pipeline == nil {
+		return spec.DeploymentPipelineResponse{}
+	}
+
+	promotionPaths := make([]spec.PromotionPath, len(pipeline.PromotionPaths))
+	for i, path := range pipeline.PromotionPaths {
+		targetRefs := make([]spec.TargetEnvironmentRef, len(path.TargetEnvironmentRefs))
+		for j, target := range path.TargetEnvironmentRefs {
+			targetRefs[j] = spec.TargetEnvironmentRef{
+				Name: target.Name,
+			}
+		}
+		promotionPaths[i] = spec.PromotionPath{
+			SourceEnvironmentRef:  path.SourceEnvironmentRef,
+			TargetEnvironmentRefs: targetRefs,
+		}
+	}
+
+	return spec.DeploymentPipelineResponse{
+		Name:           pipeline.Name,
+		DisplayName:    pipeline.DisplayName,
+		Description:    pipeline.Description,
+		OrgName:        pipeline.OrgName,
+		CreatedAt:      pipeline.CreatedAt,
+		PromotionPaths: promotionPaths,
+	}
 }
 
 func ConvertToOrganizationResponse(org *models.OrganizationResponse) spec.OrganizationResponse {
@@ -261,6 +323,7 @@ func ConvertToProjectResponse(project *models.ProjectResponse) spec.ProjectRespo
 	}
 
 	return spec.ProjectResponse{
+		Uuid:                project.UUID,
 		Name:               project.Name,
 		DisplayName:        project.DisplayName,
 		Description:        project.Description,
@@ -276,6 +339,7 @@ func ConvertToProjectListItem(project *models.ProjectResponse) spec.ProjectListI
 	}
 
 	return spec.ProjectListItem{
+		Uuid:        project.UUID,
 		Name:        project.Name,
 		DisplayName: project.DisplayName,
 		CreatedAt:   project.CreatedAt,
@@ -309,6 +373,25 @@ func ConvertToBuildLogsResponse(buildLogs models.BuildLogsResponse) spec.BuildLo
 		Logs:       logEntries,
 		TotalCount: buildLogs.TotalCount,
 		TookMs:     buildLogs.TookMs,
+	}
+
+	return responses
+}
+
+func ConvertToDataPlaneListResponse(dataPlanes []*models.DataPlaneResponse) []spec.DataPlane {
+	if len(dataPlanes) == 0 {
+		return []spec.DataPlane{}
+	}
+
+	responses := make([]spec.DataPlane, len(dataPlanes))
+	for i, dp := range dataPlanes {
+		responses[i] = spec.DataPlane{
+			Name:        dp.Name,
+			OrgName:     dp.OrgName,
+			DisplayName: dp.DisplayName,
+			Description: dp.Description,
+			CreatedAt:   dp.CreatedAt,
+		}
 	}
 
 	return responses

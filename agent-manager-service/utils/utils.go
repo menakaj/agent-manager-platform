@@ -1,13 +1,18 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package utils
 
@@ -19,7 +24,7 @@ import (
 	"regexp"
 	"strings"
 
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/spec"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/spec"
 )
 
 func ValidateAgentCreatePayload(payload spec.CreateAgentRequest) error {
@@ -34,23 +39,63 @@ func ValidateAgentCreatePayload(payload spec.CreateAgentRequest) error {
 	if err := validateAgentProvisioning(payload.Provisioning); err != nil {
 		return fmt.Errorf("invalid agent provisioning: %w", err)
 	}
-
+	// Validate agent type and subtype
+	if err := validateAgentType(payload.AgentType); err != nil {
+		return fmt.Errorf("invalid agent type or subtype: %w", err)
+	}
+	// Additional validations for internal agents
 	if payload.Provisioning.Type == string(InternalAgent) {
-		// Validate repository details for internal agents
-		if err := validateRepoDetails(payload.Provisioning.Repository); err != nil {
-			return fmt.Errorf("invalid repository details: %w", err)
+		if err := validateInternalAgent(payload); err != nil {
+			return err
 		}
+	}
 
-		// Validate input interface
-		if payload.InputInterface == nil {
-			return fmt.Errorf("inputInterface is required for internal agents")
-		}
-		if err := validateInputInterface(*payload.InputInterface); err != nil {
+	return nil
+}
+
+// validateInternalAgent performs validations specific to internal agents
+func validateInternalAgent(payload spec.CreateAgentRequest) error {
+	// Validate Agent Type
+	if err := validateAgentSubType(payload.AgentType); err != nil {
+		return fmt.Errorf("invalid agent subtype: %w", err)
+	}
+	// Validate API input interface for API agents
+	if payload.AgentType.Type == string(AgentTypeAPI) {
+		if err := validateInputInterface(payload.AgentType, payload.InputInterface); err != nil {
 			return fmt.Errorf("invalid inputInterface: %w", err)
 		}
-		if err := validateLanguage(payload.RuntimeConfigs.Language, payload.RuntimeConfigs.LanguageVersion); err != nil {
-			return fmt.Errorf("invalid language: %w", err)
-		}
+	}
+
+	// Validate runtime configurations
+	if payload.RuntimeConfigs == nil {
+		return fmt.Errorf("runtimeConfigs is required for internal agents")
+	}
+
+	if err := validateLanguage(payload.RuntimeConfigs.Language, payload.RuntimeConfigs.LanguageVersion); err != nil {
+		return fmt.Errorf("invalid language: %w", err)
+	}
+
+	return nil
+}
+
+func validateAgentType(agentType spec.AgentType) error {
+	if agentType.Type != string(AgentTypeAPI) {
+		return fmt.Errorf("unsupported agent type: %s", agentType.Type)
+	}
+	return nil
+}
+
+func validateAgentSubType(agentType spec.AgentType) error {
+	if agentType.SubType == nil {
+		return fmt.Errorf("agent subtype is required")
+	}
+	if agentType.Type != string(AgentTypeAPI) {
+		return fmt.Errorf("unsupported agent type: %s", agentType.Type)
+	}
+	// Validate subtype for API agent type
+	subType := StrPointerAsStr(agentType.SubType, "")
+	if subType != string(AgentSubTypeChatAPI) && subType != string(AgentSubTypeCustomAPI) {
+		return fmt.Errorf("unsupported agent subtype for type %s: %s", agentType.Type, subType)
 	}
 
 	return nil
@@ -59,6 +104,12 @@ func ValidateAgentCreatePayload(payload spec.CreateAgentRequest) error {
 func validateAgentProvisioning(provisioning spec.Provisioning) error {
 	if provisioning.Type != string(InternalAgent) && provisioning.Type != string(ExternalAgent) {
 		return fmt.Errorf("provisioning type must be either 'internal' or 'external'")
+	}
+	if provisioning.Type == string(InternalAgent) {
+		// Validate repository details for internal agents
+		if err := validateRepoDetails(provisioning.Repository); err != nil {
+			return fmt.Errorf("invalid repository details: %w", err)
+		}
 	}
 	return nil
 }
@@ -121,45 +172,58 @@ func validateRepoDetails(repo *spec.RepositoryConfig) error {
 }
 
 // ValidateInputInterface validates the inputInterface field in CreateAgentRequest
-func validateInputInterface(inputInterface spec.InputInterface) error {
-	if inputInterface.Type == "" {
-		return fmt.Errorf("inputInterface.type is required")
+func validateInputInterface(agentType spec.AgentType, inputInterface *spec.InputInterface) error {
+	if inputInterface == nil {
+		return fmt.Errorf("inputInterface is required for internal agents")
 	}
-	if inputInterface.Type != string(EndpointTypeDefault) && inputInterface.Type != string(EndpointTypeCustom) {
-		return fmt.Errorf("inputInterface.type must be '%s' or '%s'", EndpointTypeDefault, EndpointTypeCustom)
+	if inputInterface.Type != string(InputInterfaceTypeHTTP) {
+		return fmt.Errorf("unsupported inputInterface type: %s", inputInterface.Type)
 	}
-	if inputInterface.Type == string(EndpointTypeCustom) {
-		if inputInterface.CustomOpenAPISpec == nil {
-			return fmt.Errorf("inputInterface.customOpenAPISpec is required when type is '%s'", EndpointTypeCustom)
+	if StrPointerAsStr(agentType.SubType, "") == string(AgentSubTypeCustomAPI) {
+		if inputInterface.Schema.Path == "" {
+			return fmt.Errorf("inputInterface.schema.path is required")
 		}
-		if inputInterface.CustomOpenAPISpec.Port <= 0 || inputInterface.CustomOpenAPISpec.Port > 65535 {
-			return fmt.Errorf("customOpenAPISpec.port must be a valid port number (1-65535)")
+		if inputInterface.Port <= 0 || inputInterface.Port > 65535 {
+			return fmt.Errorf("inputInterface.port must be a valid port number (1-65535)")
 		}
-		if inputInterface.CustomOpenAPISpec.BasePath == "" {
-			return fmt.Errorf("customOpenAPISpec.basePath is required")
+		if inputInterface.BasePath == "" {
+			return fmt.Errorf("inputInterface.basePath is required")
 		}
 	}
+
 	return nil
 }
 
-func validateLanguage(language string, languageVersion string) error {
+func validateLanguage(language string, languageVersion *string) error {
+	if language == "" {
+		return fmt.Errorf("language cannot be empty")
+	}
+	if languageVersion == nil && language != string(LanguageBallerina) {
+		return fmt.Errorf("language version cannot be empty")
+	}
+
 	// Find the buildpack for the given language
 	for _, buildpack := range Buildpacks {
 		if buildpack.Language != language {
 			continue
 		}
 
+		if language == string(LanguageBallerina) {
+			// Ballerina does not require version validation
+			return nil
+		}
+
 		// Language found, now check if version is supported
 		supportedVersions := strings.Split(buildpack.SupportedVersions, ",")
 		for _, version := range supportedVersions {
 			version = strings.TrimSpace(version)
-			if isVersionMatching(version, languageVersion) {
+			if isVersionMatching(version, *languageVersion) {
 				return nil
 			}
 		}
 
 		// Language found but version not supported
-		return fmt.Errorf("unsupported language version '%s' for language '%s'", languageVersion, language)
+		return fmt.Errorf("unsupported language version '%s' for language '%s'", *languageVersion, language)
 	}
 
 	// Language not found

@@ -4,13 +4,15 @@ Install the Agent Management Platform on an existing OpenChoreo cluster.
 
 ## Prerequisites
 
-- **OpenChoreo cluster (v0.3.2+)** with the following components installed:
+- **OpenChoreo cluster (v0.3.0+)** with the following components installed:
   - OpenChoreo Control Plane
-  - OpenChoreo Data Plane
+  - OpenChoreo Data Plane 
   - OpenChoreo Build Plane
-  - OpenChoreo Observability Plane (required)
-- **kubectl** configured with access to the cluster
-- **Helm** v3.8+ installed
+  - OpenChoreo Observability Plane
+
+  Follow [OpenChoreo Single Cluster Setup](https://openchoreo.dev/docs/v0.3.x/getting-started/single-cluster/) to install open-choreo single cluster.
+
+
 - Sufficient permissions to create namespaces and deploy resources
 
 ## Verify Prerequisites
@@ -150,8 +152,8 @@ kubectl port-forward -n wso2-amp svc/amp-api 8080:8080 &
 # Traces Observer (port 9098)
 kubectl port-forward -n openchoreo-observability-plane svc/amp-traces-observer 9098:9098 &
 
-# Data Prepper (port 21893)
-kubectl port-forward -n openchoreo-observability-plane svc/data-prepper 21893:21893 &
+# OTel Collector (port 21893)
+kubectl port-forward -n openchoreo-observability-plane svc/opentelemetry-collector 21893:4318 &
 
 # External gateway (port 8443)
 kubectl port-forward -n openchoreo-data-plane svc/gateway-external 8443:443 &
@@ -321,7 +323,7 @@ kubectl delete namespace wso2-amp
 - Console: 3000
 - Agent Manager API: 8080
 - Traces Observer: 9098
-- Data Prepper: 21893
+- OTel Collector: 21893
 
 ## See Also
 

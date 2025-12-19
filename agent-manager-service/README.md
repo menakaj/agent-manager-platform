@@ -32,7 +32,6 @@ agent-manager-service/
 ├── wiring/                   # Dependency injection
 ├── .air.toml                 # Air hot-reload configuration
 ├── .env                      # Environment variables (development)
-├── .env.test                 # Test environment variables
 ├── Dockerfile                # Production container build
 ├── Dockerfile.dev            # Development container with hot-reload
 ├── go.mod                    # Go module definition
@@ -65,7 +64,6 @@ go mod download
 ```
 
 ### 3. Set Up Database
-<!-- Update this section with the DB script and instructions on how to set up the DB locally -->
 
 ### 4. Configurations
 <!-- Update this section when adding new configs-->

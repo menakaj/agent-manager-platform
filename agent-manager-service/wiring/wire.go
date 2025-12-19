@@ -1,16 +1,21 @@
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
+//
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
+
 //go:build wireinject
 // +build wireinject
-
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
-//
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
 
 package wiring
 
@@ -19,13 +24,14 @@ import (
 
 	"github.com/google/wire"
 
-	observabilitysvc "github.com/wso2-enterprise/agent-management-platform/agent-manager-service/clients/observabilitysvc"
-	clients "github.com/wso2-enterprise/agent-management-platform/agent-manager-service/clients/openchoreosvc"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/config"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/controllers"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/middleware/jwtassertion"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/repositories"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/services"
+	observabilitysvc "github.com/wso2/ai-agent-management-platform/agent-manager-service/clients/observabilitysvc"
+	clients "github.com/wso2/ai-agent-management-platform/agent-manager-service/clients/openchoreosvc"
+	traceobserversvc "github.com/wso2/ai-agent-management-platform/agent-manager-service/clients/traceobserversvc"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/config"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/controllers"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/middleware/jwtassertion"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/repositories"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/services"
 )
 
 var configProviderSet = wire.NewSet(
@@ -36,28 +42,33 @@ var repositoryProviderSet = wire.NewSet(
 	repositories.NewOrganizationRepository,
 	repositories.NewAgentRepository,
 	repositories.NewProjectRepository,
+	repositories.NewInternalAgentRepository,
 )
 
 var clientProviderSet = wire.NewSet(
 	clients.NewOpenChoreoSvcClient,
 	observabilitysvc.NewObservabilitySvcClient,
+	traceobserversvc.NewTraceObserverClient,
 )
 
 var serviceProviderSet = wire.NewSet(
 	services.NewAgentManagerService,
 	services.NewBuildCIManager,
 	services.NewInfraResourceManager,
+	services.NewObservabilityManager,
 )
 
 var controllerProviderSet = wire.NewSet(
 	controllers.NewAgentController,
 	controllers.NewBuildCIController,
 	controllers.NewInfraResourceController,
+	controllers.NewObservabilityController,
 )
 
 var testClientProviderSet = wire.NewSet(
 	ProvideTestOpenChoreoSvcClient,
 	ProvideTestObservabilitySvcClient,
+	ProvideTestTraceObserverClient,
 )
 
 // ProvideLogger provides the configured slog.Logger instance
@@ -77,6 +88,11 @@ func ProvideTestOpenChoreoSvcClient(testClients TestClients) clients.OpenChoreoS
 // ProvideTestObservabilitySvcClient extracts the ObservabilitySvcClient from TestClients
 func ProvideTestObservabilitySvcClient(testClients TestClients) observabilitysvc.ObservabilitySvcClient {
 	return testClients.ObservabilitySvcClient
+}
+
+// ProvideTestTraceObserverClient extracts the TraceObserverClient from TestClients
+func ProvideTestTraceObserverClient(testClients TestClients) traceobserversvc.TraceObserverClient {
+	return testClients.TraceObserverClient
 }
 
 func InitializeAppParams(cfg *config.Config) (*AppParams, error) {

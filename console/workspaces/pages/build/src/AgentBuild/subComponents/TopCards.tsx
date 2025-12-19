@@ -1,6 +1,24 @@
-import { Box, CircularProgress, Skeleton } from "@mui/material";
+/**
+ * Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
+ *
+ * WSO2 LLC. licenses this file to you under the Apache License,
+ * Version 2.0 (the "License"); you may not use this file except
+ * in compliance with the License.
+ * You may obtain a copy of the License at
+ *
+ * http://www.apache.org/licenses/LICENSE-2.0
+ *
+ * Unless required by applicable law or agreed to in writing,
+ * software distributed under the License is distributed on an
+ * "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+ * KIND, either express or implied.  See the License for the
+ * specific language governing permissions and limitations
+ * under the License.
+ */
+
+import { Box, CircularProgress, Skeleton } from "@wso2/oxygen-ui";
 import { StatusCard } from '@agent-management-platform/views';
-import { CheckCircle as CheckCircleIcon, Error, PlayArrow, Warning } from '@mui/icons-material';
+import { CheckCircle as CheckCircleIcon, XCircle as Error, Play as PlayArrow, AlertTriangle as Warning } from '@wso2/oxygen-ui-icons-react';
 import dayjs from 'dayjs';
 import duration from 'dayjs/plugin/duration';
 import relativeTime from 'dayjs/plugin/relativeTime';
@@ -18,16 +36,17 @@ export interface TopCardsProps {
 }
 const getBuildIcon = (status: BuildStatus) => {
     switch (status) {
-        case "Completed":
-            return <CheckCircleIcon />;
+        case "BuildCompleted":
+        case "WorkloadUpdated":
+            return <CheckCircleIcon size={20} />;
         case "BuildTriggered":
-            return <PlayArrow />;
-        case "BuildInProgress":
+            return <PlayArrow size={20} />;
+        case "BuildRunning":
             return <CircularProgress size={20} color="inherit" />;
         case "BuildFailed":
-            return <Error />;
+            return <Error size={20} />;
         default:
-            return <Error />;
+            return <Error size={20} />;
     }
 }
 const percIcon = (percentage: number) => {
@@ -35,13 +54,13 @@ const percIcon = (percentage: number) => {
         return <CircularProgress size={20} color="inherit" />;
     }
     if (percentage >= 0.9) {
-        return <CheckCircleIcon fontSize="small" color="inherit" />;
+        return <CheckCircleIcon size={20}  />;
     }
     else if (percentage >= 0.5) {
-        return <Warning fontSize="small" />;
+        return <Warning size={20} />;
     }
     else {
-        return <Error fontSize="small" />;
+        return <Error size={20} />;
     }
 }
 const percIconVariant = (percentage: number) => {
@@ -62,11 +81,12 @@ const percIconVariant = (percentage: number) => {
 
 const getBuildIconVariant = (status: BuildStatus): 'success' | 'warning' | 'error' | 'info' => {
     switch (status) {
-        case "Completed":
+        case "BuildCompleted":
+        case "WorkloadUpdated":
             return "success"; // greenish for success
         case "BuildTriggered":
             return "warning";
-        case "BuildInProgress":
+        case "BuildRunning":
             return "warning";
         case "BuildFailed":
             return "error"; // red for failed
@@ -76,11 +96,12 @@ const getBuildIconVariant = (status: BuildStatus): 'success' | 'warning' | 'erro
 }
 const getTagVariant = (status: BuildStatus): 'success' | 'warning' | 'error' | 'info' | 'default' => {
     switch (status) {
-        case "Completed":
+        case "BuildCompleted":
+        case "WorkloadUpdated":
             return "success";
         case "BuildTriggered":
             return "warning";
-        case "BuildInProgress":
+        case "BuildRunning":
             return "warning";
         case "BuildFailed":
             return "error";
@@ -88,20 +109,7 @@ const getTagVariant = (status: BuildStatus): 'success' | 'warning' | 'error' | '
             return "default";
     }
 }
-const getTagText = (status: BuildStatus) => {
-    switch (status) {
-        case "Completed":
-            return "Success";
-        case "BuildFailed":
-            return "Failed";
-        case "BuildInProgress":
-            return "In Progress";
-        case "BuildTriggered":
-            return "Triggered";
-        default:
-            return "Unknown";
-    }
-}
+
 function TopCardsSkeleton() {
     return (
         <Box sx={{
@@ -122,7 +130,7 @@ function TopCardsSkeleton() {
 export const TopCards: React.FC = (
 ) => {
     const { agentId, projectId, orgId } = useParams();
-    const { data: builds, isLoading } = useGetAgentBuilds({ orgName: orgId ?? 'default', projName: projectId ?? 'default', agentName: agentId ?? '' });
+    const { data: builds, isLoading } = useGetAgentBuilds({ orgName: orgId, projName: projectId, agentName: agentId });
 
     // Latest Build
     const latestBuild = builds?.builds[0];
@@ -130,8 +138,7 @@ export const TopCards: React.FC = (
     const latestBuildStartedTime = latestBuild?.startedAt ?? '';
 
     // Summery
-    const succesfullBuildCount = builds?.builds.filter((build) => build.status === 'Completed').length ?? 0;
-    const inProgressBuildCount = builds?.builds.filter((build) => build.status === 'BuildInProgress' || build.status === 'BuildTriggered').length ?? 0;
+    const succesfullBuildCount = builds?.builds.filter((build) => build.status === 'BuildCompleted' || build.status === 'WorkloadUpdated').length ?? 0;
     const failedBuildCount = builds?.builds.filter((build) => build.status === 'BuildFailed').length ?? 0;
 
 
@@ -142,7 +149,7 @@ export const TopCards: React.FC = (
     return (
         <Box sx={{
             display: 'grid',
-            gap: 2,
+            gap: 4,
             gridTemplateColumns: {
                 xs: '1fr',
                 md: '1fr 1fr',
@@ -155,7 +162,6 @@ export const TopCards: React.FC = (
                 subtitle={dayjs(latestBuildStartedTime).fromNow()}
                 icon={getBuildIcon(latestBuildStatus as BuildStatus)}
                 iconVariant={getBuildIconVariant(latestBuildStatus as BuildStatus)}
-                tag={getTagText(latestBuildStatus as BuildStatus)}
                 tagVariant={getTagVariant(latestBuildStatus as BuildStatus)}
                 minWidth="100%"
             />
@@ -172,16 +178,6 @@ export const TopCards: React.FC = (
                 tagVariant={
                     percIconVariant(succesfullBuildCount
                         / (succesfullBuildCount + failedBuildCount))}
-                minWidth="100%"
-            />
-            <StatusCard
-                title="Build Status"
-                value={`${inProgressBuildCount}/${builds?.builds.length ?? 0}`}
-                subtitle="in progress"
-                icon={getBuildIcon(latestBuildStatus as BuildStatus)}
-                iconVariant={getBuildIconVariant(latestBuildStatus as BuildStatus)}
-                tag={`${inProgressBuildCount}/${builds?.builds.length ?? 0}`}
-                tagVariant={getTagVariant(latestBuildStatus as BuildStatus)}
                 minWidth="100%"
             />
         </Box>
