@@ -18,9 +18,6 @@ inputs:
   tag:
     description: 'Image tag (usually release tag)'
     required: true
-  github-token:
-    description: 'GitHub token for authentication'
-    required: true
 
 runs:
   using: 'composite'
@@ -40,4 +37,3 @@ runs:
       run: |
         echo "Built and pushed: ${{ inputs.registry }}/${{ inputs.registry-org }}/${{ inputs.image-name }}:${{ inputs.tag }}"
       shell: bash
-
