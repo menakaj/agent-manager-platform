@@ -22,7 +22,7 @@ type RuntimeConfiguration struct {
 	// Environment variables
 	Env             []EnvironmentVariable `json:"env,omitempty"`
 	RunCommand      *string               `json:"runCommand,omitempty"`
-	LanguageVersion string                `json:"languageVersion"`
+	LanguageVersion *string               `json:"languageVersion,omitempty"`
 	Language        string                `json:"language"`
 }
 
@@ -30,9 +30,8 @@ type RuntimeConfiguration struct {
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewRuntimeConfiguration(languageVersion string, language string) *RuntimeConfiguration {
+func NewRuntimeConfiguration(language string) *RuntimeConfiguration {
 	this := RuntimeConfiguration{}
-	this.LanguageVersion = languageVersion
 	this.Language = language
 	return &this
 }
@@ -109,28 +108,36 @@ func (o *RuntimeConfiguration) SetRunCommand(v string) {
 	o.RunCommand = &v
 }
 
-// GetLanguageVersion returns the LanguageVersion field value
+// GetLanguageVersion returns the LanguageVersion field value if set, zero value otherwise.
 func (o *RuntimeConfiguration) GetLanguageVersion() string {
-	if o == nil {
+	if o == nil || IsNil(o.LanguageVersion) {
 		var ret string
 		return ret
 	}
-
-	return o.LanguageVersion
+	return *o.LanguageVersion
 }
 
-// GetLanguageVersionOk returns a tuple with the LanguageVersion field value
+// GetLanguageVersionOk returns a tuple with the LanguageVersion field value if set, nil otherwise
 // and a boolean to check if the value has been set.
 func (o *RuntimeConfiguration) GetLanguageVersionOk() (*string, bool) {
-	if o == nil {
+	if o == nil || IsNil(o.LanguageVersion) {
 		return nil, false
 	}
-	return &o.LanguageVersion, true
+	return o.LanguageVersion, true
 }
 
-// SetLanguageVersion sets field value
+// HasLanguageVersion returns a boolean if a field has been set.
+func (o *RuntimeConfiguration) HasLanguageVersion() bool {
+	if o != nil && !IsNil(o.LanguageVersion) {
+		return true
+	}
+
+	return false
+}
+
+// SetLanguageVersion gets a reference to the given string and assigns it to the LanguageVersion field.
 func (o *RuntimeConfiguration) SetLanguageVersion(v string) {
-	o.LanguageVersion = v
+	o.LanguageVersion = &v
 }
 
 // GetLanguage returns the Language field value
@@ -173,7 +180,9 @@ func (o RuntimeConfiguration) ToMap() (map[string]interface{}, error) {
 	if !IsNil(o.RunCommand) {
 		toSerialize["runCommand"] = o.RunCommand
 	}
-	toSerialize["languageVersion"] = o.LanguageVersion
+	if !IsNil(o.LanguageVersion) {
+		toSerialize["languageVersion"] = o.LanguageVersion
+	}
 	toSerialize["language"] = o.Language
 	return toSerialize, nil
 }

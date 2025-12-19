@@ -1,13 +1,18 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package dbmigrations
 
@@ -24,7 +29,7 @@ var migration005 = migration{
    id      UUID PRIMARY KEY,
    name          VARCHAR(100) NOT NULL,
    display_name  VARCHAR(100) NOT NULL,
-   agent_type    VARCHAR(100) NOT NULL,
+   provisioning_type    VARCHAR(100) NOT NULL,
    description   TEXT,
    project_id    UUID NOT NULL,
    org_id        UUID NOT NULL,
@@ -33,7 +38,7 @@ var migration005 = migration{
    deleted_at    TIMESTAMPTZ,
    CONSTRAINT fk_agents_project_id FOREIGN KEY (project_id) REFERENCES projects(id) ON DELETE CASCADE,
    CONSTRAINT fk_agents_org_id FOREIGN KEY (org_id) REFERENCES organizations(id) ON DELETE CASCADE,
-   CONSTRAINT agent_type_enum check (agent_type in ('internal', 'external'))
+   CONSTRAINT provisioning_type_enum check (provisioning_type in ('internal', 'external'))
 )`
 
 		createIndex := `CREATE UNIQUE INDEX uk_agents_name_project_org ON agents(name, project_id, org_id) WHERE deleted_at IS NULL`

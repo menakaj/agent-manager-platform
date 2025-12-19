@@ -16,7 +16,12 @@
  * under the License.
  */
 
-import { type AgentPathParams, type BuildPathParams, type ListQuery, type PaginationMeta } from './common';
+import {
+  type AgentPathParams,
+  type BuildPathParams,
+  type ListQuery,
+  type PaginationMeta,
+} from "./common";
 
 // Requests
 export interface BuildAgentQuery {
@@ -24,7 +29,22 @@ export interface BuildAgentQuery {
 }
 
 // Responses
-export type BuildStatus = 'BuildInProgress' | 'BuildTriggered' | 'Completed' | 'BuildFailed';
+export type BuildStatus =
+  | "BuildRunning"
+  | "BuildTriggered"
+  | "BuildCompleted"
+  | "BuildFailed"
+  | "WorkloadUpdated";
+
+export type BuildStatusColor = 'success' | 'warning' | 'error' | 'default';
+
+export const BUILD_STATUS_COLOR_MAP: Record<BuildStatus, BuildStatusColor> = {
+  BuildCompleted: 'success',
+  BuildTriggered: 'warning',
+  BuildRunning: 'warning',
+  BuildFailed: 'error',
+  WorkloadUpdated: 'success',
+};
 
 export interface BuildResponse {
   buildId?: string;
@@ -43,7 +63,7 @@ export interface BuildsListResponse extends PaginationMeta {
   builds: BuildResponse[];
 }
 
-export type LogLevel = 'INFO' | 'WARN' | 'ERROR' | 'DEBUG';
+export type LogLevel = "INFO" | "WARN" | "ERROR" | "DEBUG";
 
 export interface BuildLogEntry {
   timestamp: string; // ISO date-time
@@ -51,16 +71,24 @@ export interface BuildLogEntry {
   logLevel: LogLevel;
 }
 
-export type BuildLogsResponse = BuildLogEntry[];
+export interface BuildLogsResponse {
+  logs: BuildLogEntry[];
+}
 
-export type BuildStepType = 'BuildInitiated' | 'BuildTriggered' | 'BuildCompleted' | 'WorkloadUpdated';
-export type BuildStepStatus = 'True' | 'False' | 'Unknown';
+export type BuildStepType =
+  | "BuildInitiated"
+  | "BuildTriggered"
+  | "BuildRunning"
+  | "BuildCompleted"
+  | "WorkloadUpdated";
+export type BuildStepStatus = "Succeeded" | "Failed" | "Running" | "Pending";
 
 export interface BuildStep {
-  type: string; // Using string to be flexible with backend step types
-  status: string; // Using string to be flexible with backend status values
+  type: BuildStepType;
+  status: BuildStepStatus;
   message: string;
-  at: string; // ISO date-time
+  startedAt?: string; // ISO date-time
+  finishedAt?: string; // ISO date-time
 }
 
 export interface BuildDetailsResponse extends BuildResponse {
@@ -76,5 +104,3 @@ export type GetBuildPathParams = BuildPathParams;
 export type GetBuildLogsPathParams = BuildPathParams;
 
 export type GetAgentBuildsQuery = ListQuery;
-
-

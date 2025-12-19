@@ -1,13 +1,13 @@
-module github.com/wso2-enterprise/agent-management-platform/agent-manager-service
+module github.com/wso2/ai-agent-management-platform/agent-manager-service
 
 go 1.24.2
 
 toolchain go1.24.9
 
 require (
-	github.com/jackc/pgx/v5 v5.6.0
+	github.com/jackc/pgx/v5 v5.7.1
 	github.com/joho/godotenv v1.4.0
-	github.com/openchoreo/openchoreo v0.3.1-0.20251020070153-e3a74bbc8012
+	github.com/openchoreo/openchoreo v0.7.0
 	github.com/stretchr/testify v1.11.1
 	gorm.io/driver/postgres v1.6.0
 	gorm.io/gorm v1.31.0
@@ -42,9 +42,9 @@ require (
 	github.com/x448/float16 v0.8.4 // indirect
 	go.yaml.in/yaml/v2 v2.4.2 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
-	golang.org/x/net v0.41.0 // indirect
+	golang.org/x/net v0.47.0 // indirect
 	golang.org/x/oauth2 v0.29.0 // indirect
-	golang.org/x/term v0.33.0 // indirect
+	golang.org/x/term v0.37.0 // indirect
 	golang.org/x/time v0.11.0 // indirect
 	google.golang.org/protobuf v1.36.6 // indirect
 	gopkg.in/inf.v0 v0.9.1 // indirect
@@ -67,8 +67,8 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	go.uber.org/automaxprocs v1.6.0
-	golang.org/x/crypto v0.40.0 // indirect
-	golang.org/x/sync v0.16.0 // indirect
-	golang.org/x/sys v0.35.0 // indirect
-	golang.org/x/text v0.27.0 // indirect
+	golang.org/x/crypto v0.45.0 // indirect
+	golang.org/x/sync v0.18.0 // indirect
+	golang.org/x/sys v0.38.0 // indirect
+	golang.org/x/text v0.31.0 // indirect
 )

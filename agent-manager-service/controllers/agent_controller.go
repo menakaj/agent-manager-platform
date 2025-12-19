@@ -1,31 +1,34 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package controllers
-
-// NOTE: This is a placeholder implementation for the agent controller.
-// TODO: Replace with actual implementation based on your HTTP framework (Gin, Echo, etc.).
 
 import (
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 	"strconv"
 	"time"
 
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/middleware/jwtassertion"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/middleware/logger"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/services"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/spec"
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/utils"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/middleware/jwtassertion"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/middleware/logger"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/services"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/spec"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/utils"
 )
 
 type AgentController interface {
@@ -59,16 +62,9 @@ func (c *agentController) GetAgent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" || agentName == "" {
-		log.Error("GetAgent: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
 
 	// Extract user info from JWT token
 	tokenClaims := jwtassertion.GetTokenClaims(ctx)
@@ -101,37 +97,31 @@ func (c *agentController) ListAgents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
 
-	// Validate required path parameters
-	if orgName == "" || projName == "" {
-		log.Error("ListAgents: missing required path parameters", "orgName", orgName, "projName", projName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
 	// Parse query parameters
 	limitStr := r.URL.Query().Get("limit")
 	if limitStr == "" {
-		limitStr = "10"
+		limitStr = strconv.Itoa(utils.DefaultLimit)
 	}
 	offsetStr := r.URL.Query().Get("offset")
 	if offsetStr == "" {
-		offsetStr = "0"
+		offsetStr = strconv.Itoa(utils.DefaultOffset)
 	}
 
 	// Parse and validate pagination parameters
 	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit < 1 || limit > 50 {
+	if err != nil || limit < utils.MinLimit || limit > utils.MaxLimit {
 		log.Error("ListAgents: invalid limit parameter", "limit", limitStr)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Invalid limit parameter: must be between 1 and 50")
+		utils.WriteErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Invalid limit parameter: must be between %d and %d", utils.MinLimit, utils.MaxLimit))
 		return
 	}
 
 	offset, err := strconv.Atoi(offsetStr)
-	if err != nil || offset < 0 {
+	if err != nil || offset < utils.MinOffset {
 		log.Error("ListAgents: invalid offset parameter", "offset", offsetStr)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Invalid offset parameter: must be 0 or greater")
+		utils.WriteErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Invalid offset parameter: must be %d or greater", utils.MinOffset))
 		return
 	}
 
@@ -170,15 +160,8 @@ func (c *agentController) CreateAgent(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" {
-		log.Error("CreateAgent: missing required path parameters", "orgName", orgName, "projName", projName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
 
 	// Extract user info from JWT token
 	tokenClaims := jwtassertion.GetTokenClaims(ctx)
@@ -217,12 +200,14 @@ func (c *agentController) CreateAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	response := &spec.AgentResponse{
-		Name:         payload.Name,
-		DisplayName:  payload.DisplayName,
-		Description:  utils.StrPointerAsStr(payload.Description, ""),
-		ProjectName:  projName,
-		Provisioning: payload.Provisioning,
-		CreatedAt:    time.Now(),
+		Name:           payload.Name,
+		DisplayName:    payload.DisplayName,
+		Description:    utils.StrPointerAsStr(payload.Description, ""),
+		ProjectName:    projName,
+		Provisioning:   payload.Provisioning,
+		AgentType:      payload.AgentType,
+		RuntimeConfigs: payload.RuntimeConfigs,
+		CreatedAt:      time.Now(),
 	}
 
 	utils.WriteSuccessResponse(w, http.StatusAccepted, response)
@@ -232,16 +217,9 @@ func (c *agentController) DeleteAgent(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	log := logger.GetLogger(ctx)
 
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" || agentName == "" {
-		log.Error("BuildAgent: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
 
 	// Extract user info from JWT token
 	tokenClaims := jwtassertion.GetTokenClaims(r.Context())
@@ -258,10 +236,6 @@ func (c *agentController) DeleteAgent(w http.ResponseWriter, r *http.Request) {
 			utils.WriteErrorResponse(w, http.StatusNotFound, "Project not found")
 			return
 		}
-		if errors.Is(err, utils.ErrAgentNotFound) {
-			utils.WriteErrorResponse(w, http.StatusNotFound, "Agent not found")
-			return
-		}
 		utils.WriteErrorResponse(w, http.StatusInternalServerError, "Failed to delete agent")
 		return
 	}
@@ -273,16 +247,9 @@ func (c *agentController) BuildAgent(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" || agentName == "" {
-		log.Error("BuildAgent: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
 
 	// Parse query parameters
 	commitId := r.URL.Query().Get("commitId")
@@ -320,17 +287,10 @@ func (c *agentController) GetBuildLogs(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
-	buildName := r.PathValue("buildName")
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" || agentName == "" || buildName == "" {
-		log.Error("GetBuildLogs: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName, "buildName", buildName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
+	buildName := r.PathValue(utils.PathParamBuildName)
 
 	// Extract user info from JWT token
 	tokenClaims := jwtassertion.GetTokenClaims(ctx)
@@ -366,16 +326,9 @@ func (c *agentController) DeployAgent(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" || agentName == "" {
-		log.Error("DeployAgent: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
 
 	// Extract user info from JWT token
 	tokenClaims := jwtassertion.GetTokenClaims(ctx)
@@ -395,7 +348,7 @@ func (c *agentController) DeployAgent(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	err := c.agentService.DeployAgent(ctx, userIdpId, orgName, projName, agentName, &payload)
+	deployedEnv, err := c.agentService.DeployAgent(ctx, userIdpId, orgName, projName, agentName, &payload)
 	if err != nil {
 		log.Error("DeployAgent: failed to deploy agent", "error", err)
 		if errors.Is(err, utils.ErrOrganizationNotFound) {
@@ -418,7 +371,7 @@ func (c *agentController) DeployAgent(w http.ResponseWriter, r *http.Request) {
 		AgentName:   agentName,
 		ProjectName: projName,
 		ImageId:     payload.ImageId,
-		Environment: "Development",
+		Environment: deployedEnv,
 	}
 	utils.WriteSuccessResponse(w, http.StatusAccepted, response)
 }
@@ -428,39 +381,32 @@ func (c *agentController) ListAgentBuilds(w http.ResponseWriter, r *http.Request
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" || agentName == "" {
-		log.Error("ListAgentBuilds: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
 
 	// Parse query parameters
 	limitStr := r.URL.Query().Get("limit")
 	if limitStr == "" {
-		limitStr = "10"
+		limitStr = strconv.Itoa(utils.DefaultLimit)
 	}
 	offsetStr := r.URL.Query().Get("offset")
 	if offsetStr == "" {
-		offsetStr = "0"
+		offsetStr = strconv.Itoa(utils.DefaultOffset)
 	}
 
 	// Parse and validate pagination parameters
 	limit, err := strconv.Atoi(limitStr)
-	if err != nil || limit < 1 || limit > 50 {
+	if err != nil || limit < utils.MinLimit || limit > utils.MaxLimit {
 		log.Error("ListAgentBuilds: invalid limit parameter", "limit", limitStr)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Invalid limit parameter: must be between 1 and 50")
+		utils.WriteErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Invalid limit parameter: must be between %d and %d", utils.MinLimit, utils.MaxLimit))
 		return
 	}
 
 	offset, err := strconv.Atoi(offsetStr)
-	if err != nil || offset < 0 {
+	if err != nil || offset < utils.MinOffset {
 		log.Error("ListAgentBuilds: invalid offset parameter", "offset", offsetStr)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Invalid offset parameter: must be 0 or greater")
+		utils.WriteErrorResponse(w, http.StatusBadRequest, fmt.Sprintf("Invalid offset parameter: must be %d or greater", utils.MinOffset))
 		return
 	}
 
@@ -503,14 +449,7 @@ func (c *agentController) GenerateName(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-
-	// Validate required path parameters
-	if orgName == "" {
-		log.Error("CheckAgentNameAvailability: missing required path parameters", "orgName", orgName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
 
 	// Extract user info from JWT token
 	tokenClaims := jwtassertion.GetTokenClaims(ctx)
@@ -559,16 +498,10 @@ func (c *agentController) GetBuild(w http.ResponseWriter, r *http.Request) {
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
-	buildName := r.PathValue("buildName")
-
-	if orgName == "" || projName == "" || agentName == "" || buildName == "" {
-		log.Error("GetBuild: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName, "buildName", buildName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
+	buildName := r.PathValue(utils.PathParamBuildName)
 
 	// Extract user info from JWT token
 	tokenClaims := jwtassertion.GetTokenClaims(ctx)
@@ -606,16 +539,9 @@ func (c *agentController) GetAgentDeployments(w http.ResponseWriter, r *http.Req
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" || agentName == "" {
-		log.Error("GetAgentDeployments: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
 
 	// Extract user info from JWT token
 	tokenClaims := jwtassertion.GetTokenClaims(ctx)
@@ -649,20 +575,13 @@ func (c *agentController) GetAgentEndpoints(w http.ResponseWriter, r *http.Reque
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
 	environment := r.URL.Query().Get("environment")
 	if environment == "" {
 		log.Error("GetAgentEndpoints: missing required query parameter 'environment'")
 		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required query parameter 'environment'")
-		return
-	}
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" || agentName == "" {
-		log.Error("GetAgentEndpoints: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
 		return
 	}
 
@@ -698,16 +617,9 @@ func (c *agentController) GetAgentConfigurations(w http.ResponseWriter, r *http.
 	log := logger.GetLogger(ctx)
 
 	// Extract path parameters
-	orgName := r.PathValue("orgName")
-	projName := r.PathValue("projName")
-	agentName := r.PathValue("agentName")
-
-	// Validate required path parameters
-	if orgName == "" || projName == "" || agentName == "" {
-		log.Error("GetAgentConfigurations: missing required path parameters", "orgName", orgName, "projName", projName, "agentName", agentName)
-		utils.WriteErrorResponse(w, http.StatusBadRequest, "Missing required path parameters")
-		return
-	}
+	orgName := r.PathValue(utils.PathParamOrgName)
+	projName := r.PathValue(utils.PathParamProjName)
+	agentName := r.PathValue(utils.PathParamAgentName)
 
 	environment := r.URL.Query().Get("environment")
 	if environment == "" {

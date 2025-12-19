@@ -1,13 +1,18 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package main
 
@@ -21,11 +26,11 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/wso2-enterprise/agent-management-platform/traces-observer-service/config"
-	"github.com/wso2-enterprise/agent-management-platform/traces-observer-service/controllers"
-	"github.com/wso2-enterprise/agent-management-platform/traces-observer-service/handlers"
-	"github.com/wso2-enterprise/agent-management-platform/traces-observer-service/middleware"
-	"github.com/wso2-enterprise/agent-management-platform/traces-observer-service/opensearch"
+	"github.com/wso2/ai-agent-management-platform/traces-observer-service/config"
+	"github.com/wso2/ai-agent-management-platform/traces-observer-service/controllers"
+	"github.com/wso2/ai-agent-management-platform/traces-observer-service/handlers"
+	"github.com/wso2/ai-agent-management-platform/traces-observer-service/middleware"
+	"github.com/wso2/ai-agent-management-platform/traces-observer-service/opensearch"
 )
 
 func main() {
@@ -40,10 +45,8 @@ func main() {
 	// Initialize OpenSearch client
 	osClient, err := opensearch.NewClient(&cfg.OpenSearch)
 	if err != nil {
+		// log.Fatalf internally calls os.Exit(1)
 		log.Fatalf("Failed to create OpenSearch client: %v", err)
-		// Exit if OpenSearch client cannot be created
-		// Raise Error and exit
-		os.Exit(1)
 	}
 
 	// Initialize service
@@ -54,8 +57,8 @@ func main() {
 
 	// Setup routes
 	mux := http.NewServeMux()
-	mux.HandleFunc("/api/traces", handler.GetTraceOverviews)
-	mux.HandleFunc("/api/trace", handler.GetTraceByIdAndService)
+	mux.HandleFunc("/api/v1/traces", handler.GetTraceOverviews)
+	mux.HandleFunc("/api/v1/trace", handler.GetTraceByIdAndService)
 	mux.HandleFunc("/health", handler.Health)
 
 	// Apply CORS middleware

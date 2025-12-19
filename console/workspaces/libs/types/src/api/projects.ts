@@ -36,13 +36,21 @@ export interface ProjectResponse {
   createdAt: string; // ISO date-time
 }
 
+export interface ProjectListItem {
+  name: string;
+  orgName: string;
+  displayName: string;
+  createdAt: string; // ISO date-time
+}
+
 export interface ProjectListResponse extends PaginationMeta {
   projects: ProjectResponse[];
 }
 
 // Path/Query helpers
-export type ListProjectsPathParams = { orgName: string };
-export type CreateProjectPathParams = { orgName: string };
-export type GetProjectPathParams = { orgName: string; projName: string };
+export type ListProjectsPathParams = { orgName: string | undefined };
+export type CreateProjectPathParams = { orgName: string | undefined };
+export type GetProjectPathParams = { orgName: string | undefined; projName: string | undefined };
 export type ListProjectsQuery = ListQuery;
+export type DeleteProjectPathParams = { orgName: string | undefined; projName: string | undefined };
 

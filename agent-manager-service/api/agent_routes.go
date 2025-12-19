@@ -1,38 +1,43 @@
-// Copyright (c) 2025, WSO2 LLC (http://www.wso2.com). All Rights Reserved.
+// Copyright (c) 2025, WSO2 LLC. (https://www.wso2.com).
 //
-// This software is the property of WSO2 LLC and its suppliers, if any.
-// Dissemination of any information or reproduction of any material contained
-// herein is strictly forbidden, unless permitted by WSO2 in accordance with
-// the WSO2 Commercial License available at http://wso2.com/licenses.
-// For specific language governing the permissions and limitations under
-// this license, please see the license as well as any agreement you've
-// entered into with WSO2 governing the purchase of this software and any
-// associated services.
+// WSO2 LLC. licenses this file to you under the Apache License,
+// Version 2.0 (the "License"); you may not use this file except
+// in compliance with the License.
+// You may obtain a copy of the License at
+//
+// http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing,
+// software distributed under the License is distributed on an
+// "AS IS" BASIS, WITHOUT WARRANTIES OR CONDITIONS OF ANY
+// KIND, either express or implied.  See the License for the
+// specific language governing permissions and limitations
+// under the License.
 
 package api
 
 import (
 	"net/http"
 
-	"github.com/wso2-enterprise/agent-management-platform/agent-manager-service/controllers"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/controllers"
+	"github.com/wso2/ai-agent-management-platform/agent-manager-service/middleware"
 )
 
 func registerAgentRoutes(mux *http.ServeMux, ctrl controllers.AgentController) {
-	mux.HandleFunc("GET /orgs/{orgName}/projects/{projName}/agents", ctrl.ListAgents)
-	// utility endpoint to generate name from  name
-	mux.HandleFunc("POST /orgs/{orgName}/utils/generate-name", ctrl.GenerateName)
-	mux.HandleFunc("POST /orgs/{orgName}/projects/{projName}/agents", ctrl.CreateAgent)
+	// All routes now use HandleFuncWithValidation which automatically
+	// extracts path parameters from the pattern and validates them
 
-	mux.HandleFunc("GET /orgs/{orgName}/projects/{projName}/agents/{agentName}", ctrl.GetAgent)
-	mux.HandleFunc("DELETE /orgs/{orgName}/projects/{projName}/agents/{agentName}", ctrl.DeleteAgent)
-	mux.HandleFunc("POST /orgs/{orgName}/projects/{projName}/agents/{agentName}/builds", ctrl.BuildAgent)
-	mux.HandleFunc("GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/builds", ctrl.ListAgentBuilds)
-	mux.HandleFunc("GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/builds/{buildName}", ctrl.GetBuild)
-	mux.HandleFunc("GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/builds/{buildName}/build-logs", ctrl.GetBuildLogs)
-
-	mux.HandleFunc("POST /orgs/{orgName}/projects/{projName}/agents/{agentName}/deployments", ctrl.DeployAgent)
-	mux.HandleFunc("GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/deployments", ctrl.GetAgentDeployments)
-
-	mux.HandleFunc("GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/endpoints", ctrl.GetAgentEndpoints)
-	mux.HandleFunc("GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/configurations", ctrl.GetAgentConfigurations)
+	middleware.HandleFuncWithValidation(mux, "POST /orgs/{orgName}/projects/{projName}/agents", ctrl.CreateAgent)
+	middleware.HandleFuncWithValidation(mux, "GET /orgs/{orgName}/projects/{projName}/agents", ctrl.ListAgents)
+	middleware.HandleFuncWithValidation(mux, "POST /orgs/{orgName}/utils/generate-name", ctrl.GenerateName)
+	middleware.HandleFuncWithValidation(mux, "GET /orgs/{orgName}/projects/{projName}/agents/{agentName}", ctrl.GetAgent)
+	middleware.HandleFuncWithValidation(mux, "DELETE /orgs/{orgName}/projects/{projName}/agents/{agentName}", ctrl.DeleteAgent)
+	middleware.HandleFuncWithValidation(mux, "POST /orgs/{orgName}/projects/{projName}/agents/{agentName}/builds", ctrl.BuildAgent)
+	middleware.HandleFuncWithValidation(mux, "GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/builds", ctrl.ListAgentBuilds)
+	middleware.HandleFuncWithValidation(mux, "GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/builds/{buildName}", ctrl.GetBuild)
+	middleware.HandleFuncWithValidation(mux, "GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/builds/{buildName}/build-logs", ctrl.GetBuildLogs)
+	middleware.HandleFuncWithValidation(mux, "POST /orgs/{orgName}/projects/{projName}/agents/{agentName}/deployments", ctrl.DeployAgent)
+	middleware.HandleFuncWithValidation(mux, "GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/deployments", ctrl.GetAgentDeployments)
+	middleware.HandleFuncWithValidation(mux, "GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/endpoints", ctrl.GetAgentEndpoints)
+	middleware.HandleFuncWithValidation(mux, "GET /orgs/{orgName}/projects/{projName}/agents/{agentName}/configurations", ctrl.GetAgentConfigurations)
 }

@@ -17,9 +17,8 @@
  */
 
 import { BuildDetailsResponse, BuildStatus, BuildStep } from "@agent-management-platform/types";
-import { QuestionMarkOutlined, ErrorOutlined, CheckCircle, ArrowRight } from "@mui/icons-material";
-import { alpha, Box, CircularProgress, Divider, Tooltip, Typography } from "@mui/material";
-import { useTheme } from "@mui/material/styles";
+import { HelpCircle as QuestionMarkOutlined, XCircle as ErrorOutlined, CheckCircle, ChevronRight as ArrowRight } from "@wso2/oxygen-ui-icons-react";
+import { alpha, Box, CircularProgress, Divider, Tooltip, Typography, useTheme } from "@wso2/oxygen-ui";
 import dayjs from "dayjs";
 import relativeTime from "dayjs/plugin/relativeTime";
 
@@ -31,12 +30,12 @@ export interface BuildStepsProps {
 
 const getIcon = (step: BuildStep) => {
     switch (step.status) {
-        case "True":
-            return <CheckCircle fontSize="inherit" />;
-        case "False":
-            return <ErrorOutlined fontSize="inherit" />;
+        case "Succeeded":
+            return <CheckCircle size={16} />;
+        case "Failed":
+            return <ErrorOutlined size={16} />;
         default:
-            return <QuestionMarkOutlined fontSize="inherit" />;
+            return <QuestionMarkOutlined size={16} />;
     }
 }
 
@@ -48,6 +47,8 @@ const getDisplayName = (step: BuildStep) => {
             return "Initiated";
         case "BuildTriggered":
             return "Triggered";
+        case "BuildRunning":
+            return "Running";
         case "WorkloadUpdated":
             return "Workload Updated";
         default:
@@ -63,12 +64,12 @@ function Step(props: { step: BuildStep, index: number, buildStatus: BuildStatus 
         if (isLoading) {
             return theme.palette.warning.main;
         }
-        if (step.status === "True") {
+        if (step.status === "Succeeded") {
             return theme.palette.success.main;
         }
         return theme.palette.error.main;
     }
-    const isLoading = !(buildStatus === "Completed" || buildStatus === "BuildFailed") && step.status !== "True";
+    const isLoading = !(buildStatus === "BuildCompleted" || buildStatus === "WorkloadUpdated" || buildStatus === "BuildFailed") && step.status !== "Succeeded";
     const color = getColor(isLoading);
     return (
         <>
@@ -79,15 +80,15 @@ function Step(props: { step: BuildStep, index: number, buildStatus: BuildStatus 
                     px: 2,
                     py: 1,
                     alignItems: 'center',
-                    background: `linear-gradient(to top, ${alpha(color, 0.1)} 0%, ${alpha(color, 0.05)} 100%)`,
+                    backgroundColor: alpha(color, 0.1),
                     justifyContent: 'space-between',
                     color: color,
                 }}>
-                    {index > 0 && <ArrowRight color="inherit" fontSize="inherit" />}
+                    {index > 0 && <ArrowRight size={16}/>}
                     <Box display="flex" gap={1} alignItems="center">
-                        {isLoading && <CircularProgress size={16} color="inherit" />}
+                        {isLoading && <CircularProgress size={12} color="inherit" />}
                         {!isLoading && getIcon(step)}
-                        <Typography variant="body2">{getDisplayName(step)}</Typography>
+                        <Typography variant="caption" noWrap>{getDisplayName(step)}</Typography>
                     </Box>
                 </Box>
             </Tooltip>
@@ -97,9 +98,8 @@ function Step(props: { step: BuildStep, index: number, buildStatus: BuildStatus 
 
 export function BuildSteps(props: BuildStepsProps) {
     const { build } = props;
-    const theme = useTheme();
     return (
-        <Box flexDirection="column" gap={1} display="flex">
+        <Box flexDirection="column" gap={2} display="flex">
             <Box display="flex" gap={1} alignItems="center">
                 <Typography variant="h6">Pipeline Status</Typography>
                 <Divider orientation="vertical" flexItem />
@@ -110,12 +110,11 @@ export function BuildSteps(props: BuildStepsProps) {
                 </Tooltip>
             </Box>
             <Box sx={{
-                display: 'flex', alignItems: 'center',
-                border: `1px solid ${theme.palette.divider}`,
-                borderRadius: 8,
+                display: 'flex', 
+                alignItems: 'center',
+                borderRadius: 2,
                 width: 'fit-content',
-                overflow: 'hidden',
-
+                overflow: 'hidden'
             }}>
                 {build.steps?.map((step, index) => <Step
                     step={step}

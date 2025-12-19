@@ -20,28 +20,33 @@ var _ MappedNullable = &AgentResponse{}
 
 // AgentResponse struct for AgentResponse
 type AgentResponse struct {
+	Uuid        string    `json:"uuid"`
 	Name        string    `json:"name"`
 	DisplayName string    `json:"displayName"`
 	Description string    `json:"description"`
 	CreatedAt   time.Time `json:"createdAt"`
 	ProjectName string    `json:"projectName"`
 	// Current status of the agent
-	Status       *string      `json:"status,omitempty"`
-	Provisioning Provisioning `json:"provisioning"`
+	Status         *string               `json:"status,omitempty"`
+	Provisioning   Provisioning          `json:"provisioning"`
+	AgentType      AgentType             `json:"agentType"`
+	RuntimeConfigs *RuntimeConfiguration `json:"runtimeConfigs,omitempty"`
 }
 
 // NewAgentResponse instantiates a new AgentResponse object
 // This constructor will assign default values to properties that have it defined,
 // and makes sure properties required by API are set, but the set of arguments
 // will change when the set of required properties is changed
-func NewAgentResponse(name string, displayName string, description string, createdAt time.Time, projectName string, provisioning Provisioning) *AgentResponse {
+func NewAgentResponse(uuid string, name string, displayName string, description string, createdAt time.Time, projectName string, provisioning Provisioning, agentType AgentType) *AgentResponse {
 	this := AgentResponse{}
+	this.Uuid = uuid
 	this.Name = name
 	this.DisplayName = displayName
 	this.Description = description
 	this.CreatedAt = createdAt
 	this.ProjectName = projectName
 	this.Provisioning = provisioning
+	this.AgentType = agentType
 	return &this
 }
 
@@ -51,6 +56,30 @@ func NewAgentResponse(name string, displayName string, description string, creat
 func NewAgentResponseWithDefaults() *AgentResponse {
 	this := AgentResponse{}
 	return &this
+}
+
+// GetUuid returns the Uuid field value
+func (o *AgentResponse) GetUuid() string {
+	if o == nil {
+		var ret string
+		return ret
+	}
+
+	return o.Uuid
+}
+
+// GetUuidOk returns a tuple with the Uuid field value
+// and a boolean to check if the value has been set.
+func (o *AgentResponse) GetUuidOk() (*string, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.Uuid, true
+}
+
+// SetUuid sets field value
+func (o *AgentResponse) SetUuid(v string) {
+	o.Uuid = v
 }
 
 // GetName returns the Name field value
@@ -229,6 +258,62 @@ func (o *AgentResponse) SetProvisioning(v Provisioning) {
 	o.Provisioning = v
 }
 
+// GetAgentType returns the AgentType field value
+func (o *AgentResponse) GetAgentType() AgentType {
+	if o == nil {
+		var ret AgentType
+		return ret
+	}
+
+	return o.AgentType
+}
+
+// GetAgentTypeOk returns a tuple with the AgentType field value
+// and a boolean to check if the value has been set.
+func (o *AgentResponse) GetAgentTypeOk() (*AgentType, bool) {
+	if o == nil {
+		return nil, false
+	}
+	return &o.AgentType, true
+}
+
+// SetAgentType sets field value
+func (o *AgentResponse) SetAgentType(v AgentType) {
+	o.AgentType = v
+}
+
+// GetRuntimeConfigs returns the RuntimeConfigs field value if set, zero value otherwise.
+func (o *AgentResponse) GetRuntimeConfigs() RuntimeConfiguration {
+	if o == nil || IsNil(o.RuntimeConfigs) {
+		var ret RuntimeConfiguration
+		return ret
+	}
+	return *o.RuntimeConfigs
+}
+
+// GetRuntimeConfigsOk returns a tuple with the RuntimeConfigs field value if set, nil otherwise
+// and a boolean to check if the value has been set.
+func (o *AgentResponse) GetRuntimeConfigsOk() (*RuntimeConfiguration, bool) {
+	if o == nil || IsNil(o.RuntimeConfigs) {
+		return nil, false
+	}
+	return o.RuntimeConfigs, true
+}
+
+// HasRuntimeConfigs returns a boolean if a field has been set.
+func (o *AgentResponse) HasRuntimeConfigs() bool {
+	if o != nil && !IsNil(o.RuntimeConfigs) {
+		return true
+	}
+
+	return false
+}
+
+// SetRuntimeConfigs gets a reference to the given RuntimeConfiguration and assigns it to the RuntimeConfigs field.
+func (o *AgentResponse) SetRuntimeConfigs(v RuntimeConfiguration) {
+	o.RuntimeConfigs = &v
+}
+
 func (o AgentResponse) MarshalJSON() ([]byte, error) {
 	toSerialize, err := o.ToMap()
 	if err != nil {
@@ -239,6 +324,7 @@ func (o AgentResponse) MarshalJSON() ([]byte, error) {
 
 func (o AgentResponse) ToMap() (map[string]interface{}, error) {
 	toSerialize := map[string]interface{}{}
+	toSerialize["uuid"] = o.Uuid
 	toSerialize["name"] = o.Name
 	toSerialize["displayName"] = o.DisplayName
 	toSerialize["description"] = o.Description
@@ -248,6 +334,10 @@ func (o AgentResponse) ToMap() (map[string]interface{}, error) {
 		toSerialize["status"] = o.Status
 	}
 	toSerialize["provisioning"] = o.Provisioning
+	toSerialize["agentType"] = o.AgentType
+	if !IsNil(o.RuntimeConfigs) {
+		toSerialize["runtimeConfigs"] = o.RuntimeConfigs
+	}
 	return toSerialize, nil
 }
 
