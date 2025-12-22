@@ -1,4 +1,4 @@
-# WSO2 AI Agent Management Platform
+# WSO2 AI Agent Management Platform - Change 1
 
 [![Platform Release](https://img.shields.io/github/v/release/wso2/ai-agent-management-platform?filter=amp/*&label=platform&color=orange)](https://github.com/wso2/ai-agent-management-platform/releases?q=amp)
 [![Python Instrumentation](https://img.shields.io/github/v/release/wso2/ai-agent-management-platform?filter=amp-instrumentation/*&label=python-instrumentation&color=blue)](https://github.com/wso2/ai-agent-management-platform/releases?q=amp-instrumentation)
